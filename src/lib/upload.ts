@@ -1,4 +1,4 @@
-import type { Item } from './types';
+import type { ProcessedImage } from './types';
 
 const SUPPORTED_MIME = new Set([
   'image/jpeg',
@@ -18,21 +18,21 @@ export type UploadError = {
 };
 
 export type UploadResult = {
-  item: Item | null;
+  image: ProcessedImage | null;
   error: UploadError | null;
 };
 
 async function processFile(file: File): Promise<UploadResult> {
   if (!SUPPORTED_MIME.has(file.type)) {
     return {
-      item: null,
+      image: null,
       error: { filename: file.name, reason: `Unsupported type: ${file.type || 'unknown'}` }
     };
   }
 
   if (file.size > MAX_INPUT_BYTES) {
     return {
-      item: null,
+      image: null,
       error: { filename: file.name, reason: `Too large (${(file.size / 1024 / 1024).toFixed(1)} MB, max 10 MB)` }
     };
   }
@@ -48,27 +48,25 @@ async function processFile(file: File): Promise<UploadResult> {
     });
     const thumbBlob = await rasterizeToBlob(thumbBitmap, THUMB_SIZE);
 
+    const width = masterBitmap.width;
+    const height = masterBitmap.height;
+
     masterBitmap.close();
     thumbBitmap.close();
 
-    const id = crypto.randomUUID();
     return {
-      item: {
-        id,
+      image: {
         masterBlob,
         thumbBlob,
-        url: URL.createObjectURL(masterBlob),
-        thumbUrl: URL.createObjectURL(thumbBlob),
-        width: masterBitmap.width,
-        height: masterBitmap.height,
-        alt: file.name.replace(/\.[^.]+$/, ''),
-        tierId: null
+        width,
+        height,
+        alt: file.name.replace(/\.[^.]+$/, '')
       },
       error: null
     };
   } catch (e) {
     return {
-      item: null,
+      image: null,
       error: { filename: file.name, reason: `Decode failed: ${(e as Error).message}` }
     };
   }

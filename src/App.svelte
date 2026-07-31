@@ -4,6 +4,10 @@
   import { uploadFiles, type UploadResult } from './lib/upload';
   import TierRow from './components/TierRow.svelte';
   import ItemTray from './components/ItemTray.svelte';
+  import Dashboard from './components/Dashboard.svelte';
+
+  type View = 'dashboard' | 'editor';
+  let view = $state<View>('dashboard');
 
   let uploadError = $state<string | null>(null);
   let isWindowDragOver = $state(false);
@@ -19,8 +23,8 @@
   );
 
   function handleResult(result: UploadResult) {
-    if (result.item) {
-      listStore.addItem(result.item);
+    if (result.image) {
+      void listStore.addItemFromUpload(result.image);
     } else if (result.error) {
       uploadError = `${result.error.filename}: ${result.error.reason}`;
       setTimeout(() => {
@@ -36,7 +40,7 @@
   function onFileInputChange(e: Event) {
     const input = e.target as HTMLInputElement;
     if (!input.files) return;
-    uploadFiles(input.files, handleResult);
+    void uploadFiles(input.files, handleResult);
     input.value = '';
   }
 
@@ -66,7 +70,8 @@
     if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
       e.preventDefault();
       isWindowDragOver = false;
-      uploadFiles(e.dataTransfer.files, handleResult);
+      if (view !== 'editor') return;
+      void uploadFiles(e.dataTransfer.files, handleResult);
     }
   }
 
@@ -80,6 +85,12 @@
 
   function addTierBelow(index: number) {
     listStore.addTier(index + 1);
+  }
+
+  async function gotoDashboard() {
+    await listStore.flushPendingSave();
+    listStore.unload();
+    view = 'dashboard';
   }
 
   const totalItems = $derived(listStore.items.length);
@@ -104,13 +115,20 @@
 
 <header class="toolbar">
   <div class="brand">
+    {#if view === 'editor'}
+      <button class="back-btn" onclick={gotoDashboard} aria-label="Back to dashboard" title="Back to dashboard">
+        ←
+      </button>
+    {/if}
     <span class="logo">🐵</span>
     <span class="brand-name">Tier <span class="brand-accent">Monkey</span></span>
   </div>
   <div class="toolbar-spacer"></div>
-  <button class="btn-secondary" onclick={pickFiles}>⬆ Upload</button>
-  <button class="btn-secondary">Templates</button>
-  <button class="btn-secondary">Share</button>
+  {#if view === 'editor'}
+    <button class="btn-secondary" onclick={pickFiles}>⬆ Upload</button>
+    <button class="btn-secondary">Templates</button>
+    <button class="btn-secondary">Share</button>
+  {/if}
   <button
     class="btn-icon"
     onclick={() => themeStore.cycle()}
@@ -119,28 +137,36 @@
   >
     {themeIcon}
   </button>
-  <button class="btn-primary">⬇ Export</button>
+  {#if view === 'editor'}
+    <button class="btn-primary">⬇ Export</button>
+  {/if}
 </header>
 
 <main class="canvas">
-  <div class="tier-list">
-    {#each listStore.tiers as tier, index (tier.id)}
-      <TierRow
-        {tier}
-        {index}
-        items={listStore.itemsInTier(tier.id)}
-        onaddtierabove={() => addTierAbove(index)}
-        onaddtierbelow={() => addTierBelow(index)}
-      />
-    {/each}
+  {#if view === 'dashboard'}
+    <Dashboard onopeneditor={() => (view = 'editor')} />
+  {:else}
+    <div class="tier-list">
+      {#each listStore.tiers as tier, index (tier.id)}
+        <TierRow
+          {tier}
+          {index}
+          items={listStore.itemsInTier(tier.id)}
+          onaddtierabove={() => addTierAbove(index)}
+          onaddtierbelow={() => addTierBelow(index)}
+        />
+      {/each}
 
-    <button class="add-tier-btn" onclick={addTierAtEnd}>+ Add tier</button>
-  </div>
+      <button class="add-tier-btn" onclick={addTierAtEnd}>+ Add tier</button>
+    </div>
+  {/if}
 </main>
 
-<ItemTray items={listStore.trayItems()} />
+{#if view === 'editor'}
+  <ItemTray items={listStore.trayItems()} />
+{/if}
 
-{#if isWindowDragOver}
+{#if isWindowDragOver && view === 'editor'}
   <div class="drop-overlay">
     <div class="drop-overlay-text">📥 Drop images anywhere to upload</div>
   </div>
@@ -153,11 +179,13 @@
   </div>
 {/if}
 
-<footer class="status-bar">
-  <span class="status-text">
-    {rankedItems} ranked · {totalItems - rankedItems} in tray · {totalItems} total
-  </span>
-</footer>
+{#if view === 'editor'}
+  <footer class="status-bar">
+    <span class="status-text">
+      {rankedItems} ranked · {totalItems - rankedItems} in tray · {totalItems} total
+    </span>
+  </footer>
+{/if}
 
 <style>
   .toolbar {
@@ -195,6 +223,26 @@
 
   .brand-accent {
     color: var(--color-primary-active);
+  }
+
+  .back-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--on-surface-secondary);
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: var(--space-1);
+    transition: background-color var(--duration-fast) var(--ease-standard),
+                color var(--duration-fast) var(--ease-standard);
+  }
+
+  .back-btn:hover {
+    background: var(--color-neutral-100);
+    color: var(--on-surface-primary);
   }
 
   .toolbar-spacer {
