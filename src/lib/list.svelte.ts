@@ -256,6 +256,24 @@ function createListStore() {
     unload();
   }
 
+  async function renameList(id: string, title: string): Promise<string | null> {
+    const trimmed = title.trim().slice(0, 80);
+    if (!trimmed) return null;
+    const existing = await db.lists.get(id);
+    if (!existing || existing.title === trimmed) return null;
+    const updated: ListRecord = {
+      ...existing,
+      title: trimmed,
+      updatedAt: Date.now()
+    };
+    await db.lists.put(updated);
+    if (id === currentListId) {
+      currentTitle = trimmed;
+      schedulePersist();
+    }
+    return trimmed;
+  }
+
   function schedulePersist() {
     if (!currentListId) return;
     if (saveTimer) clearTimeout(saveTimer);
@@ -357,6 +375,7 @@ function createListStore() {
     createNewList,
     loadList,
     deleteCurrentList,
+    renameList,
     flushPendingSave
   };
 }

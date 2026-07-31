@@ -5,10 +5,20 @@
   let { onopeneditor }: { onopeneditor: () => void } = $props();
 
   let creating = $state(false);
+  let editingId = $state<string | null>(null);
+  let editValue = $state('');
+  let editInputEl: HTMLInputElement | undefined = $state();
 
   $effect(() => {
     if (!dashboardStore.loaded) {
       void dashboardStore.load();
+    }
+  });
+
+  $effect(() => {
+    if (editingId && editInputEl) {
+      editInputEl.focus();
+      editInputEl.select();
     }
   });
 
@@ -24,14 +34,50 @@
   }
 
   async function handleOpen(id: string) {
+    if (editingId) return;
     await listStore.loadList(id);
     onopeneditor();
   }
 
   async function handleDelete(id: string, title: string, e: Event) {
     e.stopPropagation();
+    if (editingId === id) cancelRename();
     if (!confirm(`Delete "${title}"? This cannot be undone.`)) return;
     await dashboardStore.deleteList(id);
+  }
+
+  function startRename(id: string, currentTitle: string) {
+    editingId = id;
+    editValue = currentTitle;
+  }
+
+  function cancelRename() {
+    editingId = null;
+    editValue = '';
+  }
+
+  async function commitRename() {
+    if (!editingId) return;
+    const id = editingId;
+    const newTitle = await listStore.renameList(id, editValue);
+    if (newTitle) {
+      const idx = dashboardStore.lists.findIndex((l) => l.id === id);
+      if (idx !== -1) {
+        dashboardStore.lists[idx].title = newTitle;
+      }
+    }
+    editingId = null;
+    editValue = '';
+  }
+
+  function onRenameKeydown(e: KeyboardEvent) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      void commitRename();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      cancelRename();
+    }
   }
 </script>
 
@@ -62,23 +108,52 @@
       <ul class="draft-grid">
         {#each dashboardStore.lists as list (list.id)}
           <li class="draft-card">
-            <button
-              type="button"
-              class="draft-open"
-              onclick={() => handleOpen(list.id)}
-            >
-              <div class="draft-title">{list.title}</div>
+            <div class="card-body">
+              {#if editingId === list.id}
+                <input
+                  bind:this={editInputEl}
+                  bind:value={editValue}
+                  class="draft-rename-input"
+                  onblur={() => void commitRename()}
+                  onkeydown={onRenameKeydown}
+                  onclick={(e) => e.stopPropagation()}
+                  maxlength="80"
+                  spellcheck="false"
+                  placeholder="List title"
+                />
+              {:else}
+                <button
+                  type="button"
+                  class="draft-open"
+                  onclick={() => handleOpen(list.id)}
+                  disabled={editingId !== null}
+                >
+                  <div class="draft-title">{list.title}</div>
+                </button>
+              {/if}
               <div class="draft-meta">
                 <span class="draft-count">{list.itemCount} item{list.itemCount === 1 ? '' : 's'}</span>
                 <span class="draft-time">{formatRelativeTime(list.updatedAt)}</span>
               </div>
-            </button>
-            <button
-              type="button"
-              class="delete-btn"
-              aria-label={`Delete ${list.title}`}
-              onclick={(e) => handleDelete(list.id, list.title, e)}
-            >×</button>
+            </div>
+            <div class="card-actions">
+              {#if editingId !== list.id}
+                <button
+                  type="button"
+                  class="icon-btn rename-btn"
+                  aria-label={`Rename ${list.title}`}
+                  title="Rename"
+                  onclick={() => startRename(list.id, list.title)}
+                >✎</button>
+              {/if}
+              <button
+                type="button"
+                class="icon-btn delete-btn"
+                aria-label={`Delete ${list.title}`}
+                title="Delete"
+                onclick={(e) => handleDelete(list.id, list.title, e)}
+              >×</button>
+            </div>
           </li>
         {/each}
       </ul>
@@ -232,7 +307,7 @@
     background: var(--surface-panel);
     border: 1.5px solid var(--color-neutral-200);
     border-radius: var(--radius-md);
-    min-height: 92px;
+    min-height: 110px;
     box-shadow: var(--elevation-1);
     transition: transform var(--duration-fast) var(--ease-standard),
                 border-color var(--duration-fast) var(--ease-standard),
@@ -245,20 +320,30 @@
     box-shadow: var(--elevation-2);
   }
 
-  .draft-open {
+  .card-body {
+    padding: var(--space-4);
+    padding-right: var(--space-10);
     display: flex;
     flex-direction: column;
     gap: var(--space-2);
-    width: 100%;
     height: 100%;
-    padding: var(--space-4);
-    padding-right: var(--space-8);
+  }
+
+  .draft-open {
+    display: block;
+    width: 100%;
     background: transparent;
     border: none;
+    padding: 0;
+    margin: 0;
     text-align: left;
     cursor: pointer;
     color: inherit;
     font: inherit;
+  }
+
+  .draft-open:disabled {
+    cursor: default;
   }
 
   .draft-title {
@@ -269,6 +354,20 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .draft-rename-input {
+    width: 100%;
+    background: var(--surface-sunken);
+    border: 1.5px solid var(--color-secondary);
+    border-radius: var(--radius-sm);
+    padding: var(--space-1) var(--space-2);
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 18px;
+    color: var(--on-surface-primary);
+    outline: none;
+    box-shadow: 0 0 0 3px var(--color-secondary-subtle);
   }
 
   .draft-meta {
@@ -284,28 +383,39 @@
     font-weight: 500;
   }
 
-  .delete-btn {
+  .card-actions {
     position: absolute;
     top: var(--space-2);
     right: var(--space-2);
+    display: flex;
+    gap: var(--space-1);
+    opacity: 0;
+    transition: opacity var(--duration-fast) var(--ease-standard);
+  }
+
+  .draft-card:hover .card-actions,
+  .draft-card:focus-within .card-actions {
+    opacity: 1;
+  }
+
+  .icon-btn {
     width: 28px;
     height: 28px;
     border-radius: var(--radius-sm);
     background: transparent;
     color: var(--color-neutral-500);
-    font-size: 18px;
+    font-size: 15px;
     line-height: 1;
     display: flex;
     align-items: center;
     justify-content: center;
-    opacity: 0;
-    transition: opacity var(--duration-fast) var(--ease-standard),
-                background-color var(--duration-fast) var(--ease-standard),
+    transition: background-color var(--duration-fast) var(--ease-standard),
                 color var(--duration-fast) var(--ease-standard);
   }
 
-  .draft-card:hover .delete-btn {
-    opacity: 1;
+  .icon-btn:hover {
+    background: var(--color-neutral-100);
+    color: var(--on-surface-primary);
   }
 
   .delete-btn:hover {

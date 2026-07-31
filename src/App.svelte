@@ -2,6 +2,7 @@
   import { listStore } from './lib/list.svelte';
   import { themeStore } from './lib/theme.svelte';
   import { uploadFiles, type UploadResult } from './lib/upload';
+  import { exportListToPng, downloadBlob, sanitizeFilename } from './lib/export';
   import TierRow from './components/TierRow.svelte';
   import ItemTray from './components/ItemTray.svelte';
   import Dashboard from './components/Dashboard.svelte';
@@ -12,6 +13,7 @@
   let uploadError = $state<string | null>(null);
   let isWindowDragOver = $state(false);
   let fileInputEl: HTMLInputElement | undefined = $state();
+  let isExporting = $state(false);
 
   themeStore.load();
 
@@ -93,6 +95,27 @@
     view = 'dashboard';
   }
 
+  async function handleExport() {
+    if (isExporting) return;
+    if (listStore.tiers.length === 0) return;
+    isExporting = true;
+    try {
+      const blob = await exportListToPng({
+        title: listStore.currentTitle,
+        tiers: listStore.tiers,
+        items: listStore.items
+      });
+      downloadBlob(blob, `${sanitizeFilename(listStore.currentTitle)}.png`);
+    } catch (e) {
+      uploadError = `Export failed: ${(e as Error).message}`;
+      setTimeout(() => {
+        uploadError = null;
+      }, 5000);
+    } finally {
+      isExporting = false;
+    }
+  }
+
   const totalItems = $derived(listStore.items.length);
   const rankedItems = $derived(listStore.items.filter((i) => i.tierId !== null).length);
 </script>
@@ -138,7 +161,9 @@
     {themeIcon}
   </button>
   {#if view === 'editor'}
-    <button class="btn-primary">⬇ Export</button>
+    <button class="btn-primary" onclick={handleExport} disabled={isExporting}>
+      {isExporting ? 'Exporting…' : '⬇ Export'}
+    </button>
   {/if}
 </header>
 
@@ -271,6 +296,13 @@
   .btn-primary:active {
     transform: translateY(2px);
     box-shadow: 1px 1px 0 #241E17;
+  }
+
+  .btn-primary:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: var(--shadow-sticker);
   }
 
   .btn-secondary {
