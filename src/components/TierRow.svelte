@@ -151,14 +151,15 @@
     onconsider={handleConsider}
     onfinalize={handleFinalize}
   >
-    <div class="tier-items">
-      {#each localItems as item (item.id)}
-        <ImageCard
-          {item}
-          onresize={(size) => listStore.setItemDisplaySize(item.id, size)}
-        />
-      {/each}
-    </div>
+      <div class="tier-items">
+        {#each localItems as item (item.id)}
+          <ImageCard
+            {item}
+            onresize={(size) => listStore.setItemDisplaySize(item.id, size)}
+            onremove={() => listStore.removeItem(item.id)}
+          />
+        {/each}
+      </div>
     {#if localItems.length === 0}
       <span class="empty-hint">Drop items here</span>
     {/if}
@@ -390,5 +391,47 @@
     height: 1px;
     background: var(--color-neutral-200);
     margin: var(--space-1) 0;
+  }
+
+  @media (max-width: 768px) {
+    .tier-row {
+      min-height: 88px;
+    }
+
+    .tier-label {
+      width: 80px;
+    }
+
+    .tier-label-text {
+      font-size: 18px;
+      padding: var(--space-1);
+    }
+
+    .tier-dropzone {
+      min-height: 72px;
+      padding: var(--space-1) var(--space-2);
+    }
+
+    .tier-actions {
+      padding: 2px;
+    }
+
+    .icon-btn {
+      opacity: 1;
+    }
+
+    .menu-item {
+      font-size: 15px;
+      padding: var(--space-2) var(--space-3);
+    }
+  }
+
+  @media (max-width: 480px) {
+    .tier-label {
+      width: 64px;
+    }
+    .tier-label-text {
+      font-size: 16px;
+    }
   }
 </style>

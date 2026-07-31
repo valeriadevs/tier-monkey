@@ -4,10 +4,12 @@
 
   let {
     item,
-    onresize
+    onresize,
+    onremove
   }: {
     item: Item;
     onresize?: (size: DisplaySize) => void;
+    onremove?: () => void;
   } = $props();
 
   let popoverOpen = $state(false);
@@ -28,6 +30,11 @@
     popoverOpen = false;
   }
 
+  function remove(e: MouseEvent) {
+    e.stopPropagation();
+    onremove?.();
+  }
+
   function onWindowClick(e: MouseEvent) {
     if (!popoverOpen || !cardEl) return;
     if (!cardEl.contains(e.target as Node)) {
@@ -42,6 +49,7 @@
   bind:this={cardEl}
   class="card"
   class:has-popover={popoverOpen}
+  class:has-actions={!!onresize || !!onremove}
   style:width="{px}px"
   style:height="{px}px"
   title={item.alt}
@@ -49,6 +57,15 @@
   <div class="card-image">
     <img src={item.url} alt={item.alt} draggable="false" />
   </div>
+  {#if onremove}
+    <button
+      type="button"
+      class="remove-handle"
+      aria-label="Remove image"
+      title="Remove"
+      onclick={remove}
+    >×</button>
+  {/if}
   {#if onresize}
     <button
       type="button"
@@ -121,12 +138,12 @@
     position: absolute;
     bottom: 2px;
     right: 2px;
-    width: 20px;
-    height: 20px;
+    width: 22px;
+    height: 22px;
     border-radius: 6px;
     background: rgba(36, 30, 23, 0.75);
     color: white;
-    font-size: 12px;
+    font-size: 13px;
     line-height: 1;
     display: flex;
     align-items: center;
@@ -138,12 +155,52 @@
   }
 
   .card:hover .resize-handle,
+  .card:focus-within .resize-handle,
   .card.has-popover .resize-handle {
     opacity: 1;
   }
 
   .resize-handle:hover {
     background: var(--color-secondary);
+  }
+
+  .remove-handle {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    width: 22px;
+    height: 22px;
+    border-radius: 6px;
+    background: rgba(36, 30, 23, 0.75);
+    color: white;
+    font-size: 16px;
+    line-height: 1;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity var(--duration-fast) var(--ease-standard),
+                background-color var(--duration-fast) var(--ease-standard);
+    z-index: 2;
+  }
+
+  .card:hover .remove-handle,
+  .card:focus-within .remove-handle {
+    opacity: 1;
+  }
+
+  .remove-handle:hover {
+    background: var(--color-error-fill);
+  }
+
+  @media (hover: none) {
+    .resize-handle,
+    .remove-handle {
+      opacity: 1;
+      width: 24px;
+      height: 24px;
+    }
   }
 
   .resize-sheet {

@@ -1,8 +1,15 @@
 <script lang="ts">
   import { dashboardStore, formatRelativeTime } from '../lib/dashboard.svelte';
   import { listStore } from '../lib/list.svelte';
+  import { TEMPLATES } from '../lib/templates';
 
-  let { onopeneditor }: { onopeneditor: () => void } = $props();
+  let {
+    onopeneditor,
+    onopenTemplates
+  }: {
+    onopeneditor: () => void;
+    onopenTemplates: () => void;
+  } = $props();
 
   let creating = $state(false);
   let editingId = $state<string | null>(null);
@@ -162,10 +169,23 @@
 
   <section class="section">
     <h2 class="section-title">Templates</h2>
-    <div class="empty-card">
-      <p class="empty-text">Coming soon.</p>
-      <p class="empty-sub">Curated starter lists ship in a follow-up.</p>
+    <div class="template-preview">
+      {#each TEMPLATES.slice(0, 3) as template (template.id)}
+        <button
+          type="button"
+          class="template-preview-card"
+          onclick={onopenTemplates}
+        >
+          <span class="template-preview-emoji">{template.emoji}</span>
+          <span class="template-preview-name">{template.name}</span>
+        </button>
+      {/each}
     </div>
+    <button
+      type="button"
+      class="browse-templates-btn"
+      onclick={onopenTemplates}
+    >Browse all templates →</button>
   </section>
 </div>
 
@@ -421,5 +441,115 @@
   .delete-btn:hover {
     background: var(--color-error-subtle);
     color: var(--color-error-fill);
+  }
+
+  .template-preview {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-3);
+  }
+
+  .template-preview-card {
+    background: var(--surface-panel);
+    border: 1.5px solid var(--border-default);
+    border-radius: var(--radius-md);
+    padding: var(--space-4);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-2);
+    transition: border-color var(--duration-fast) var(--ease-standard),
+                transform var(--duration-fast) var(--ease-standard),
+                box-shadow var(--duration-fast) var(--ease-standard);
+  }
+
+  .template-preview-card:hover {
+    border-color: var(--color-secondary);
+    transform: translateY(-2px);
+    box-shadow: var(--elevation-2);
+  }
+
+  .template-preview-emoji {
+    font-size: 32px;
+    line-height: 1;
+  }
+
+  .template-preview-name {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--on-surface-primary);
+  }
+
+  .browse-templates-btn {
+    align-self: flex-start;
+    color: var(--color-secondary);
+    font-size: 13px;
+    font-weight: 600;
+    padding: var(--space-2) 0;
+    transition: color var(--duration-fast) var(--ease-standard);
+  }
+
+  .browse-templates-btn:hover {
+    color: var(--color-secondary-hover);
+  }
+
+  @media (max-width: 768px) {
+    .dashboard {
+      padding: var(--space-5) var(--space-3);
+      gap: var(--space-5);
+    }
+
+    .hero-title {
+      font-size: 32px;
+    }
+
+    .hero-tagline {
+      font-size: 14px;
+    }
+
+    .hero-logo {
+      font-size: 44px;
+    }
+
+    .new-btn {
+      height: 44px;
+      font-size: 15px;
+      padding: 0 var(--space-4);
+    }
+
+    .draft-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .card-actions {
+      opacity: 1;
+    }
+
+    .template-preview {
+      grid-template-columns: repeat(3, 1fr);
+      gap: var(--space-2);
+    }
+
+    .template-preview-card {
+      padding: var(--space-3) var(--space-2);
+    }
+
+    .template-preview-emoji {
+      font-size: 26px;
+    }
+
+    .template-preview-name {
+      font-size: 12px;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .hero-title {
+      font-size: 28px;
+    }
+    .hero-logo {
+      font-size: 36px;
+    }
   }
 </style>

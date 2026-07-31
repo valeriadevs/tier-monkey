@@ -22,6 +22,26 @@ export type UploadResult = {
   error: UploadError | null;
 };
 
+export async function processBlob(blob: Blob, alt: string): Promise<ProcessedImage> {
+  const masterBitmap = await createImageBitmap(blob, { imageOrientation: 'from-image' });
+  const masterBlob = await rasterizeToBlob(masterBitmap, MASTER_SIZE);
+
+  const thumbBitmap = await createImageBitmap(masterBitmap, {
+    resizeWidth: THUMB_SIZE,
+    resizeHeight: THUMB_SIZE,
+    resizeQuality: 'high'
+  });
+  const thumbBlob = await rasterizeToBlob(thumbBitmap, THUMB_SIZE);
+
+  const width = masterBitmap.width;
+  const height = masterBitmap.height;
+
+  masterBitmap.close();
+  thumbBitmap.close();
+
+  return { masterBlob, thumbBlob, width, height, alt };
+}
+
 async function processFile(file: File): Promise<UploadResult> {
   if (!SUPPORTED_MIME.has(file.type)) {
     return {
@@ -38,32 +58,8 @@ async function processFile(file: File): Promise<UploadResult> {
   }
 
   try {
-    const masterBitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
-    const masterBlob = await rasterizeToBlob(masterBitmap, MASTER_SIZE);
-
-    const thumbBitmap = await createImageBitmap(masterBitmap, {
-      resizeWidth: THUMB_SIZE,
-      resizeHeight: THUMB_SIZE,
-      resizeQuality: 'high'
-    });
-    const thumbBlob = await rasterizeToBlob(thumbBitmap, THUMB_SIZE);
-
-    const width = masterBitmap.width;
-    const height = masterBitmap.height;
-
-    masterBitmap.close();
-    thumbBitmap.close();
-
-    return {
-      image: {
-        masterBlob,
-        thumbBlob,
-        width,
-        height,
-        alt: file.name.replace(/\.[^.]+$/, '')
-      },
-      error: null
-    };
+    const image = await processBlob(file, file.name.replace(/\.[^.]+$/, ''));
+    return { image, error: null };
   } catch (e) {
     return {
       image: null,

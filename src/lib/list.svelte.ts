@@ -8,6 +8,9 @@ import {
   resolveAssetUrls,
   saveAsset
 } from './assets';
+import { processBlob } from './upload';
+import { makeTemplateBadgeSvg, svgToPngBlob, type Template } from './templates';
+import type { ShareSnapshot } from './share';
 
 const PERSIST_DEBOUNCE_MS = 300;
 const HISTORY_LIMIT = 50;
@@ -212,6 +215,101 @@ function createListStore() {
     items.push(item);
     schedulePersist();
     return item;
+  }
+
+  async function addItemToTier(
+    processed: ProcessedImage,
+    tierId: string | null,
+    displaySize: DisplaySize = 'M'
+  ): Promise<Item> {
+    pushHistory();
+    const asset = await saveAsset(processed.masterBlob, processed.thumbBlob);
+    const urls = await resolveAssetUrls(asset.id);
+    cacheAssetUrls(asset.id, urls);
+    const item: Item = {
+      id: crypto.randomUUID(),
+      assetId: asset.id,
+      url: urls.url,
+      thumbUrl: urls.thumbUrl,
+      width: processed.width,
+      height: processed.height,
+      alt: processed.alt,
+      tierId,
+      displaySize
+    };
+    items.push(item);
+    schedulePersist();
+    return item;
+  }
+
+  function setTiers(newTiers: { label: string; color: string }[]): void {
+    pushHistory();
+    const tiersWithId: Tier[] = newTiers.map((t) => ({
+      id: `t-${crypto.randomUUID().slice(0, 8)}`,
+      label: t.label,
+      color: t.color
+    }));
+    tiers.splice(0, tiers.length, ...tiersWithId);
+    paletteIndex = newTiers.length;
+    const validIds = new Set(tiersWithId.map((t) => t.id));
+    for (const item of items) {
+      if (item.tierId !== null && !validIds.has(item.tierId)) {
+        item.tierId = null;
+      }
+    }
+    schedulePersist();
+  }
+
+  async function createFromTemplate(template: Template): Promise<string> {
+    await flushPendingSave();
+    const id = await createNewList(template.name);
+    setTiers(template.tiers);
+    for (const sample of template.sampleItems) {
+      const svg = makeTemplateBadgeSvg(sample.label, sample.bg, sample.fg);
+      const pngBlob = await svgToPngBlob(svg, 200);
+      const processed = await processBlob(pngBlob, `${template.name} ${sample.label}`);
+      await addItemToTier(processed, null, 'M');
+    }
+    return id;
+  }
+
+  async function importShareSnapshot(snap: ShareSnapshot): Promise<string> {
+    await flushPendingSave();
+    const id = await createNewList(snap.title);
+    pushHistory();
+    const newTiers: Tier[] = snap.tiers.map((t) => ({
+      id: `t-${crypto.randomUUID().slice(0, 8)}`,
+      label: t.label,
+      color: t.color
+    }));
+    tiers.splice(0, tiers.length, ...newTiers);
+    paletteIndex = newTiers.length;
+    for (const item of snap.items) {
+      const base64 = snap.images[item.imgIdx];
+      if (!base64) continue;
+      const binary = atob(base64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      const blob = new Blob([bytes], { type: 'image/webp' });
+      const processed = await processBlob(blob, 'Shared');
+      const asset = await saveAsset(processed.masterBlob, processed.thumbBlob);
+      const urls = await resolveAssetUrls(asset.id);
+      cacheAssetUrls(asset.id, urls);
+      const tierId = item.tierIdx === null ? null : newTiers[item.tierIdx]?.id ?? null;
+      items.push({
+        id: crypto.randomUUID(),
+        assetId: asset.id,
+        url: urls.url,
+        thumbUrl: urls.thumbUrl,
+        width: processed.width,
+        height: processed.height,
+        alt: processed.alt,
+        tierId,
+        displaySize: item.displaySize
+      });
+    }
+    schedulePersist();
+    return id;
   }
 
   function removeItem(id: string) {
@@ -462,7 +560,9 @@ function createListStore() {
     renameTier,
     setTierColor,
     setItemsTier,
+    setTiers,
     addItemFromUpload,
+    addItemToTier,
     removeItem,
     clearAll,
     setItemDisplaySize,
@@ -471,6 +571,8 @@ function createListStore() {
     redo,
     unload,
     createNewList,
+    createFromTemplate,
+    importShareSnapshot,
     loadList,
     deleteCurrentList,
     renameList,

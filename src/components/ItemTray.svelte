@@ -54,6 +54,7 @@
         <ImageCard
           {item}
           onresize={(size) => listStore.setItemDisplaySize(item.id, size)}
+          onremove={() => listStore.removeItem(item.id)}
         />
       {/each}
     </div>
@@ -176,5 +177,26 @@
     color: var(--color-neutral-500);
     max-width: 380px;
     text-align: center;
+  }
+
+  @media (max-width: 768px) {
+    .tray {
+      padding: var(--space-2) var(--space-3) var(--space-3);
+    }
+
+    .tray-body {
+      min-height: 120px;
+      padding: var(--space-2);
+    }
+
+    .empty-emoji {
+      font-size: 26px;
+    }
+    .empty-text {
+      font-size: 16px;
+    }
+    .empty-sub {
+      font-size: 12px;
+    }
   }
 </style>

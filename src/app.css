@@ -247,3 +247,29 @@ button:focus-visible {
   outline: 2px solid var(--color-secondary);
   outline-offset: 2px;
 }
+
+/* ----------------------------------------------------------------
+   Mobile responsive (≤ 768px) — compact toolbar, smaller tier rows,
+   single-column dashboard, touch-friendly controls.
+   ---------------------------------------------------------------- */
+@media (max-width: 768px) {
+  :root {
+    --space-6: 20px;
+    --space-8: 24px;
+  }
+}
+
+@media (hover: none) {
+  /* Touch devices: always show hover-only controls */
+  .show-on-hover {
+    opacity: 1 !important;
+  }
+}
+
+/* Safe area insets for iOS notches */
+@supports (padding: max(0px)) {
+  body {
+    padding-left: max(0px, env(safe-area-inset-left));
+    padding-right: max(0px, env(safe-area-inset-right));
+  }
+}

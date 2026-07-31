@@ -3,17 +3,39 @@
   import { themeStore } from './lib/theme.svelte';
   import { uploadFiles, type UploadResult } from './lib/upload';
   import { exportListToPng, downloadBlob, sanitizeFilename } from './lib/export';
+  import { db } from './lib/db';
+  import {
+    buildShareSnapshotFromList,
+    clearShareHash,
+    decodeShare,
+    encodeShare,
+    readShareFromHash,
+    shareUrl,
+    type ShareSnapshot
+  } from './lib/share';
   import TierRow from './components/TierRow.svelte';
   import ItemTray from './components/ItemTray.svelte';
   import Dashboard from './components/Dashboard.svelte';
+  import TemplatesModal from './components/TemplatesModal.svelte';
+  import ShareImportModal from './components/ShareImportModal.svelte';
+  import ShareLinkModal from './components/ShareLinkModal.svelte';
 
   type View = 'dashboard' | 'editor';
   let view = $state<View>('dashboard');
 
   let uploadError = $state<string | null>(null);
+  let infoToast = $state<string | null>(null);
   let isWindowDragOver = $state(false);
   let fileInputEl: HTMLInputElement | undefined = $state();
   let isExporting = $state(false);
+  let isSharing = $state(false);
+
+  let templatesModalOpen = $state(false);
+  let shareImportSnapshot = $state<ShareSnapshot | null>(null);
+  let shareImportError = $state<string | null>(null);
+  let isImportingShare = $state(false);
+  let shareLinkUrl = $state<string | null>(null);
+  let shareLinkSizeKb = $state(0);
 
   themeStore.load();
 
@@ -23,6 +45,13 @@
   const themeLabel = $derived(
     themeStore.mode === 'auto' ? 'Auto theme' : themeStore.mode === 'light' ? 'Light theme' : 'Dark theme'
   );
+
+  function showToast(msg: string, durationMs = 4000) {
+    infoToast = msg;
+    setTimeout(() => {
+      infoToast = null;
+    }, durationMs);
+  }
 
   function handleResult(result: UploadResult) {
     if (result.image) {
@@ -95,6 +124,21 @@
     view = 'dashboard';
   }
 
+  function openTemplatesModal() {
+    if (templatesModalOpen) return;
+    templatesModalOpen = true;
+  }
+
+  function closeTemplatesModal() {
+    templatesModalOpen = false;
+  }
+
+  function handleTemplateApplied() {
+    if (view === 'dashboard') {
+      view = 'editor';
+    }
+  }
+
   async function handleExport() {
     if (isExporting) return;
     if (listStore.tiers.length === 0) return;
@@ -116,7 +160,113 @@
     }
   }
 
+  async function resizeImageForShare(blob: Blob): Promise<Blob> {
+    const bitmap = await createImageBitmap(blob, { imageOrientation: 'from-image' });
+    const targetSize = 80;
+    const scale = Math.min(1, targetSize / Math.max(bitmap.width, bitmap.height));
+    const w = Math.max(1, Math.round(bitmap.width * scale));
+    const h = Math.max(1, Math.round(bitmap.height * scale));
+    const canvas = new OffscreenCanvas(w, h);
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Failed to acquire 2D context');
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(bitmap, 0, 0, w, h);
+    bitmap.close();
+    return await canvas.convertToBlob({ type: 'image/webp', quality: 0.6 });
+  }
+
+  async function getAssetBlob(assetId: string): Promise<Blob | null> {
+    const asset = await db.assets.get(assetId);
+    return asset?.masterBlob ?? null;
+  }
+
+  async function handleShare() {
+    if (isSharing) return;
+    if (listStore.tiers.length === 0) {
+      uploadError = 'Add some tiers before sharing.';
+      setTimeout(() => {
+        uploadError = null;
+      }, 4000);
+      return;
+    }
+    isSharing = true;
+    try {
+      const snapshot = await buildShareSnapshotFromList(
+        {
+          title: listStore.currentTitle,
+          tiers: listStore.tiers,
+          items: listStore.items
+        },
+        getAssetBlob,
+        resizeImageForShare
+      );
+      const encoded = await encodeShare(snapshot);
+      const url = shareUrl(encoded);
+      const sizeKb = Math.round(encoded.length / 1024);
+      shareLinkUrl = url;
+      shareLinkSizeKb = sizeKb;
+      try {
+        await navigator.clipboard.writeText(url);
+        showToast(`Link copied (${sizeKb} KB)`);
+      } catch {
+        showToast(`Share link ready (${sizeKb} KB) — see dialog`);
+      }
+    } catch (e) {
+      uploadError = `Share failed: ${(e as Error).message}`;
+      setTimeout(() => {
+        uploadError = null;
+      }, 5000);
+    } finally {
+      isSharing = false;
+    }
+  }
+
+  function closeShareLinkModal() {
+    shareLinkUrl = null;
+  }
+
+  async function initShareImport() {
+    const encoded = readShareFromHash();
+    if (!encoded) return;
+    try {
+      const snap = await decodeShare(encoded);
+      shareImportSnapshot = snap;
+    } catch (e) {
+      shareImportError = `Bad share link: ${(e as Error).message}`;
+      clearShareHash();
+    }
+  }
+
+  async function acceptShareImport() {
+    if (!shareImportSnapshot || isImportingShare) return;
+    isImportingShare = true;
+    try {
+      await listStore.importShareSnapshot(shareImportSnapshot);
+      view = 'editor';
+      shareImportSnapshot = null;
+      clearShareHash();
+    } catch (e) {
+      uploadError = `Import failed: ${(e as Error).message}`;
+      setTimeout(() => {
+        uploadError = null;
+      }, 5000);
+    } finally {
+      isImportingShare = false;
+    }
+  }
+
+  function cancelShareImport() {
+    shareImportSnapshot = null;
+    clearShareHash();
+  }
+
   function onKeydown(e: KeyboardEvent) {
+    if (templatesModalOpen || shareImportSnapshot) return;
+    const target = e.target as HTMLElement | null;
+    if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+      return;
+    }
     const mod = e.metaKey || e.ctrlKey;
     if (!mod) return;
     const key = e.key.toLowerCase();
@@ -129,12 +279,21 @@
     }
   }
 
+  $effect(() => {
+    void initShareImport();
+  });
+
+  function onHashChange() {
+    void initShareImport();
+  }
+
   const totalItems = $derived(listStore.items.length);
   const rankedItems = $derived(listStore.items.filter((i) => i.tierId !== null).length);
 </script>
 
 <svelte:window
   onkeydown={onKeydown}
+  onhashchange={onHashChange}
   ondragenter={onWindowDragEnter}
   ondragover={onWindowDragOver}
   ondragleave={onWindowDragLeave}
@@ -177,8 +336,10 @@
       aria-label="Redo"
     >↷</button>
     <button class="btn-secondary" onclick={pickFiles}>⬆ Upload</button>
-    <button class="btn-secondary">Templates</button>
-    <button class="btn-secondary">Share</button>
+    <button class="btn-secondary" onclick={openTemplatesModal}>Templates</button>
+    <button class="btn-secondary" onclick={handleShare} disabled={isSharing}>
+      {isSharing ? 'Sharing…' : 'Share'}
+    </button>
   {/if}
   <button
     class="btn-icon"
@@ -197,7 +358,10 @@
 
 <main class="canvas">
   {#if view === 'dashboard'}
-    <Dashboard onopeneditor={() => (view = 'editor')} />
+    <Dashboard
+      onopeneditor={() => (view = 'editor')}
+      onopenTemplates={openTemplatesModal}
+    />
   {:else}
     <div class="tier-list">
       {#each listStore.tiers as tier, index (tier.id)}
@@ -232,12 +396,47 @@
   </div>
 {/if}
 
+{#if infoToast}
+  <div class="toast info" role="status">
+    <span class="toast-icon">✓</span>
+    <span class="toast-text">{infoToast}</span>
+  </div>
+{/if}
+
 {#if view === 'editor'}
   <footer class="status-bar">
     <span class="status-text">
       {rankedItems} ranked · {totalItems - rankedItems} in tray · {totalItems} total
     </span>
   </footer>
+{/if}
+
+<TemplatesModal
+  open={templatesModalOpen}
+  onclose={closeTemplatesModal}
+  onapplied={handleTemplateApplied}
+/>
+
+<ShareImportModal
+  open={shareImportSnapshot !== null}
+  snapshot={shareImportSnapshot}
+  onaccept={acceptShareImport}
+  oncancel={cancelShareImport}
+  importing={isImportingShare}
+/>
+
+<ShareLinkModal
+  open={shareLinkUrl !== null}
+  url={shareLinkUrl ?? ''}
+  sizeKb={shareLinkSizeKb}
+  onclose={closeShareLinkModal}
+/>
+
+{#if shareImportError}
+  <div class="toast" role="alert">
+    <span class="toast-icon">⚠</span>
+    <span class="toast-text">{shareImportError}</span>
+  </div>
 {/if}
 
 <style>
@@ -460,6 +659,10 @@
     max-width: 480px;
   }
 
+  .toast.info {
+    background: var(--color-secondary);
+  }
+
   .toast-icon {
     font-size: 18px;
   }
@@ -480,5 +683,86 @@
     padding: var(--space-1) var(--space-2);
     border-radius: var(--radius-sm);
     box-shadow: 0 1px 2px rgba(36, 30, 23, 0.04);
+  }
+
+  @media (max-width: 768px) {
+    .toolbar {
+      padding: 0 var(--space-3);
+      gap: var(--space-1);
+      height: 52px;
+    }
+
+    .brand-name {
+      font-size: 16px;
+    }
+
+    .logo {
+      font-size: 22px;
+    }
+
+    .btn-secondary {
+      padding: 0 var(--space-2);
+      font-size: 12px;
+      height: 32px;
+    }
+
+    .btn-primary {
+      height: 36px;
+      font-size: 13px;
+      padding: 0 var(--space-3);
+    }
+
+    .btn-icon {
+      width: 32px;
+      height: 32px;
+      font-size: 16px;
+    }
+
+    .canvas {
+      padding: var(--space-3);
+    }
+
+    .tier-list {
+      gap: var(--space-2);
+    }
+
+    .toast {
+      max-width: calc(100vw - 32px);
+      bottom: 180px;
+      font-size: 13px;
+    }
+
+    .status-bar {
+      right: var(--space-2);
+      bottom: var(--space-1);
+    }
+  }
+
+  @media (max-width: 540px) {
+    .toolbar {
+      flex-wrap: wrap;
+      height: auto;
+      padding: var(--space-2) var(--space-3);
+      gap: var(--space-2);
+    }
+
+    .toolbar-spacer {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .toast {
+      bottom: 240px;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .brand-name {
+      display: none;
+    }
+
+    .back-btn {
+      margin-right: 0;
+    }
   }
 </style>
