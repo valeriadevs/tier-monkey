@@ -1,5 +1,5 @@
 import Dexie, { type Table } from 'dexie';
-import type { Tier } from './types';
+import type { DisplaySize, Tier } from './types';
 
 export type ListRecord = {
   id: string;
@@ -20,6 +20,7 @@ export type ItemRecord = {
   width: number;
   height: number;
   alt: string;
+  displaySize: DisplaySize;
 };
 
 export type AssetRecord = {

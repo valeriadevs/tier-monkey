@@ -1,3 +1,11 @@
+export type DisplaySize = 'S' | 'M' | 'L';
+
+export const DISPLAY_SIZE_PX: Record<DisplaySize, number> = {
+  S: 48,
+  M: 88,
+  L: 140
+};
+
 export type Tier = {
   id: string;
   label: string;
@@ -13,6 +21,7 @@ export type Item = {
   height: number;
   alt: string;
   tierId: string | null;
+  displaySize: DisplaySize;
 };
 
 export type ProcessedImage = {

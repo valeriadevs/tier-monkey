@@ -1,16 +1,44 @@
-import type { Item, ProcessedImage, Tier } from './types';
+import type { DisplaySize, Item, ProcessedImage, Tier } from './types';
 import { CURRENT_SCHEMA_VERSION, DEFAULT_TIERS, TIER_PALETTE } from './types';
 import { db, type ItemRecord, type ListRecord, deleteListCascade } from './db';
 import {
   cacheAssetUrls,
   clearAllCachedUrls,
-  deleteAsset,
   getAssetUrls,
   resolveAssetUrls,
   saveAsset
 } from './assets';
 
 const PERSIST_DEBOUNCE_MS = 300;
+const HISTORY_LIMIT = 50;
+
+// Asset lifecycle note:
+// removeItem() and clearAll() no longer delete from db.assets - they keep
+// the blob records around so undo can restore removed items. Assets only
+// leave the store when their owning list is deleted (deleteListCascade).
+// This trades disk usage for trivial undo/redo of item removals.
+// If asset bloat becomes a problem, add a deferred sweep.
+
+type Snapshot = {
+  tiers: Tier[];
+  items: Item[];
+  paletteIndex: number;
+  currentTitle: string;
+};
+
+function snapshotNow(
+  tiers: Tier[],
+  items: Item[],
+  paletteIndex: number,
+  currentTitle: string
+): Snapshot {
+  return {
+    tiers: structuredClone(tiers),
+    items: structuredClone(items),
+    paletteIndex,
+    currentTitle
+  };
+}
 
 function createListStore() {
   let tiers = $state<Tier[]>([]);
@@ -20,9 +48,47 @@ function createListStore() {
   let currentTitle = $state<string>('');
   let isLoaded = $state(false);
 
+  let undoStack = $state<Snapshot[]>([]);
+  let redoStack = $state<Snapshot[]>([]);
+
   let saveTimer: ReturnType<typeof setTimeout> | null = null;
   const pendingZones = new Map<string | null, Item[]>();
   let zonesDirty = false;
+
+  function pushHistory() {
+    undoStack.push(snapshotNow(tiers, items, paletteIndex, currentTitle));
+    if (undoStack.length > HISTORY_LIMIT) undoStack.shift();
+    if (redoStack.length > 0) redoStack.splice(0, redoStack.length);
+  }
+
+  function restoreSnapshot(snap: Snapshot) {
+    tiers.splice(0, tiers.length, ...structuredClone(snap.tiers));
+    items.splice(0, items.length, ...structuredClone(snap.items));
+    paletteIndex = snap.paletteIndex;
+    currentTitle = snap.currentTitle;
+    schedulePersist();
+  }
+
+  function undo() {
+    if (undoStack.length === 0) return;
+    redoStack.push(snapshotNow(tiers, items, paletteIndex, currentTitle));
+    if (redoStack.length > HISTORY_LIMIT) redoStack.shift();
+    const snap = undoStack.pop();
+    if (snap) restoreSnapshot(snap);
+  }
+
+  function redo() {
+    if (redoStack.length === 0) return;
+    undoStack.push(snapshotNow(tiers, items, paletteIndex, currentTitle));
+    if (undoStack.length > HISTORY_LIMIT) undoStack.shift();
+    const snap = redoStack.pop();
+    if (snap) restoreSnapshot(snap);
+  }
+
+  function resetHistory() {
+    if (undoStack.length > 0) undoStack.splice(0, undoStack.length);
+    if (redoStack.length > 0) redoStack.splice(0, redoStack.length);
+  }
 
   function itemsInTier(tierId: string): Item[] {
     return items.filter((i) => i.tierId === tierId);
@@ -37,6 +103,7 @@ function createListStore() {
   }
 
   function addTier(atIndex?: number): Tier {
+    pushHistory();
     const color = TIER_PALETTE[paletteIndex % TIER_PALETTE.length];
     paletteIndex++;
     const tier: Tier = {
@@ -56,6 +123,7 @@ function createListStore() {
   function deleteTier(tierId: string) {
     const idx = tiers.findIndex((t) => t.id === tierId);
     if (idx === -1) return;
+    pushHistory();
     tiers.splice(idx, 1);
     for (const item of items) {
       if (item.tierId === tierId) item.tierId = null;
@@ -65,18 +133,18 @@ function createListStore() {
 
   function renameTier(tierId: string, label: string) {
     const tier = tiers.find((t) => t.id === tierId);
-    if (tier && tier.label !== label) {
-      tier.label = label;
-      schedulePersist();
-    }
+    if (!tier || tier.label === label) return;
+    pushHistory();
+    tier.label = label;
+    schedulePersist();
   }
 
   function setTierColor(tierId: string, color: string) {
     const tier = tiers.find((t) => t.id === tierId);
-    if (tier && tier.color !== color) {
-      tier.color = color;
-      schedulePersist();
-    }
+    if (!tier || tier.color === color) return;
+    pushHistory();
+    tier.color = color;
+    schedulePersist();
   }
 
   function setItemsTier(tierId: string | null, newZoneItems: Item[]) {
@@ -85,6 +153,7 @@ function createListStore() {
     zonesDirty = true;
     queueMicrotask(() => {
       zonesDirty = false;
+      pushHistory();
       applyPendingZones();
       pendingZones.clear();
       schedulePersist();
@@ -125,6 +194,7 @@ function createListStore() {
   }
 
   async function addItemFromUpload(image: ProcessedImage): Promise<Item> {
+    pushHistory();
     const asset = await saveAsset(image.masterBlob, image.thumbBlob);
     const urls = await resolveAssetUrls(asset.id);
     cacheAssetUrls(asset.id, urls);
@@ -136,36 +206,43 @@ function createListStore() {
       width: image.width,
       height: image.height,
       alt: image.alt,
-      tierId: null
+      tierId: null,
+      displaySize: 'M'
     };
     items.push(item);
     schedulePersist();
     return item;
   }
 
-  async function removeItem(id: string) {
+  function removeItem(id: string) {
     const idx = items.findIndex((i) => i.id === id);
     if (idx === -1) return;
-    const [removed] = items.splice(idx, 1);
-    await deleteAsset(removed.assetId);
+    pushHistory();
+    items.splice(idx, 1);
     schedulePersist();
   }
 
-  async function clearAll() {
-    const assetIds = items.map((i) => i.assetId);
+  function clearAll() {
+    if (items.length === 0) return;
+    pushHistory();
     items.splice(0, items.length);
-    for (const aid of assetIds) {
-      await deleteAsset(aid);
-    }
+    schedulePersist();
+  }
+
+  function setItemDisplaySize(id: string, size: DisplaySize) {
+    const item = items.find((i) => i.id === id);
+    if (!item || item.displaySize === size) return;
+    pushHistory();
+    item.displaySize = size;
     schedulePersist();
   }
 
   function renameCurrentList(title: string) {
     const trimmed = title.trim().slice(0, 80);
-    if (trimmed && trimmed !== currentTitle) {
-      currentTitle = trimmed;
-      schedulePersist();
-    }
+    if (!trimmed || trimmed === currentTitle) return;
+    pushHistory();
+    currentTitle = trimmed;
+    schedulePersist();
   }
 
   function unload() {
@@ -181,6 +258,7 @@ function createListStore() {
     currentListId = null;
     currentTitle = '';
     isLoaded = false;
+    resetHistory();
     clearAllCachedUrls();
   }
 
@@ -204,6 +282,7 @@ function createListStore() {
     currentListId = id;
     currentTitle = record.title;
     isLoaded = true;
+    resetHistory();
     return id;
   }
 
@@ -220,6 +299,13 @@ function createListStore() {
 
     const itemRecords = await db.items.where('listId').equals(id).toArray();
 
+    itemRecords.sort((a, b) => {
+      const aKey = a.tierId ?? '\uFFFF';
+      const bKey = b.tierId ?? '\uFFFF';
+      if (aKey !== bKey) return aKey < bKey ? -1 : 1;
+      return a.position - b.position;
+    });
+
     const assetIds = [...new Set(itemRecords.map((r) => r.assetId))];
     await Promise.all(assetIds.map((aid) => resolveAssetUrls(aid)));
 
@@ -233,7 +319,8 @@ function createListStore() {
         width: r.width,
         height: r.height,
         alt: r.alt,
-        tierId: r.tierId
+        tierId: r.tierId,
+        displaySize: r.displaySize
       };
     });
 
@@ -242,6 +329,7 @@ function createListStore() {
     currentListId = id;
     currentTitle = record.title;
     isLoaded = true;
+    resetHistory();
     return true;
   }
 
@@ -318,7 +406,8 @@ function createListStore() {
           position: i,
           width: item.width,
           height: item.height,
-          alt: item.alt
+          alt: item.alt,
+          displaySize: item.displaySize
         });
       });
     }
@@ -359,6 +448,12 @@ function createListStore() {
     get isLoaded() {
       return isLoaded;
     },
+    get canUndo() {
+      return undoStack.length > 0;
+    },
+    get canRedo() {
+      return redoStack.length > 0;
+    },
     itemsInTier,
     trayItems,
     tierItemCount,
@@ -370,7 +465,10 @@ function createListStore() {
     addItemFromUpload,
     removeItem,
     clearAll,
+    setItemDisplaySize,
     renameCurrentList,
+    undo,
+    redo,
     unload,
     createNewList,
     loadList,

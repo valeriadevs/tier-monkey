@@ -116,11 +116,25 @@
     }
   }
 
+  function onKeydown(e: KeyboardEvent) {
+    const mod = e.metaKey || e.ctrlKey;
+    if (!mod) return;
+    const key = e.key.toLowerCase();
+    if (key === 'z' && !e.shiftKey) {
+      e.preventDefault();
+      listStore.undo();
+    } else if ((key === 'z' && e.shiftKey) || key === 'y') {
+      e.preventDefault();
+      listStore.redo();
+    }
+  }
+
   const totalItems = $derived(listStore.items.length);
   const rankedItems = $derived(listStore.items.filter((i) => i.tierId !== null).length);
 </script>
 
 <svelte:window
+  onkeydown={onKeydown}
   ondragenter={onWindowDragEnter}
   ondragover={onWindowDragOver}
   ondragleave={onWindowDragLeave}
@@ -148,6 +162,20 @@
   </div>
   <div class="toolbar-spacer"></div>
   {#if view === 'editor'}
+    <button
+      class="btn-icon"
+      onclick={() => listStore.undo()}
+      disabled={!listStore.canUndo}
+      title="Undo (Ctrl+Z)"
+      aria-label="Undo"
+    >↶</button>
+    <button
+      class="btn-icon"
+      onclick={() => listStore.redo()}
+      disabled={!listStore.canRedo}
+      title="Redo (Ctrl+Shift+Z)"
+      aria-label="Redo"
+    >↷</button>
     <button class="btn-secondary" onclick={pickFiles}>⬆ Upload</button>
     <button class="btn-secondary">Templates</button>
     <button class="btn-secondary">Share</button>
@@ -336,8 +364,13 @@
     transition: background-color var(--duration-fast) var(--ease-standard);
   }
 
-  .btn-icon:hover {
+  .btn-icon:hover:not(:disabled) {
     background: var(--color-neutral-100);
+  }
+
+  .btn-icon:disabled {
+    color: var(--on-surface-disabled);
+    cursor: not-allowed;
   }
 
   .canvas {

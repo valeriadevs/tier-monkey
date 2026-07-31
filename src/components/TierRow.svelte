@@ -153,7 +153,10 @@
   >
     <div class="tier-items">
       {#each localItems as item (item.id)}
-        <ImageCard {item} size={88} />
+        <ImageCard
+          {item}
+          onresize={(size) => listStore.setItemDisplaySize(item.id, size)}
+        />
       {/each}
     </div>
     {#if localItems.length === 0}
