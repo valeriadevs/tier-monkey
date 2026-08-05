@@ -130,8 +130,8 @@
       <button
         type="button"
         class="tier-label-text"
-        ondblclick={startRename}
-        title="Double-click to rename"
+        onclick={startRename}
+        title="Rename tier"
       >
         {tier.label}
       </button>
@@ -462,16 +462,33 @@
 
   @media (max-width: 480px) {
     .tier-row {
-      min-height: 64px;
+      flex-direction: column;
+      min-height: 0;
     }
 
     .tier-label {
-      width: 56px;
+      width: 100%;
+      height: 40px;
+      padding: 0 var(--space-2);
     }
 
     .tier-label-text {
-      font-size: 14px;
-      letter-spacing: 0;
+      font-size: 16px;
+      padding: var(--space-1) var(--space-2);
+      max-width: calc(100% - 56px);
+    }
+
+    .tier-dropzone {
+      border-left: none;
+      border-top: 1.5px dashed var(--color-neutral-300);
+      border-radius: 0 0 var(--radius-md) var(--radius-md);
+      min-height: 64px;
+    }
+
+    .tier-actions {
+      position: absolute;
+      top: 4px;
+      right: 4px;
     }
   }
 </style>

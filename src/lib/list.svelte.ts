@@ -6,6 +6,7 @@ import {
   clearAllCachedUrls,
   getAssetUrls,
   resolveAssetUrls,
+  revokeAssetUrls,
   saveAsset
 } from './assets';
 import { processBlob } from './upload';
@@ -60,9 +61,17 @@ function createListStore() {
   let zonesDirty = false;
 
   function pushHistory() {
+    const evicted = undoStack.length >= HISTORY_LIMIT ? undoStack.shift() : null;
     undoStack.push(snapshotNow(tiers, items, paletteIndex, currentTitle));
-    if (undoStack.length > HISTORY_LIMIT) undoStack.shift();
     if (redoStack.length > 0) redoStack.splice(0, redoStack.length);
+    if (evicted) evictAssetUrls(evicted);
+  }
+
+  function evictAssetUrls(snap: Snapshot) {
+    const liveIds = new Set(items.map((i) => i.assetId));
+    for (const item of snap.items) {
+      if (!liveIds.has(item.assetId)) revokeAssetUrls(item.assetId);
+    }
   }
 
   function restoreSnapshot(snap: Snapshot) {
