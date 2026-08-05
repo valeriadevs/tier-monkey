@@ -1,16 +1,28 @@
 <script lang="ts">
   import { dndzone, SHADOW_ITEM_MARKER_PROPERTY_NAME } from 'svelte-dnd-action';
+  import { ClipboardPaste } from '@lucide/svelte';
   import type { Item } from '../lib/types';
   import { DND_TYPE_ITEMS } from '../lib/types';
   import { listStore } from '../lib/list.svelte';
+  import { processBlob } from '../lib/upload';
   import ImageCard from './ImageCard.svelte';
 
-  let { items }: { items: Item[] } = $props();
+  let { items, onerror }: { items: Item[]; onerror?: (msg: string) => void } = $props();
 
   let localItems = $state<Item[]>([]);
+  let urlInputOpen = $state(false);
+  let urlInput = $state('');
+  let urlLoading = $state(false);
+  let urlInputEl: HTMLInputElement | undefined = $state();
 
   $effect(() => {
     localItems = items;
+  });
+
+  $effect(() => {
+    if (urlInputOpen && urlInputEl) {
+      urlInputEl.focus();
+    }
   });
 
   function handleConsider(e: CustomEvent<{ items: Item[] }>) {
@@ -25,6 +37,36 @@
     localItems = finalItems;
     listStore.setItemsTier(null, realItems);
   }
+
+  function toggleUrlInput() {
+    urlInputOpen = !urlInputOpen;
+    if (!urlInputOpen) urlInput = '';
+  }
+
+  async function submitUrl(e: Event) {
+    e.preventDefault();
+    const url = urlInput.trim();
+    if (!url || urlLoading) return;
+    urlLoading = true;
+    try {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const blob = await response.blob();
+      if (!blob.type.startsWith('image/')) {
+        throw new Error(`Not an image (${blob.type || 'unknown type'})`);
+      }
+      const path = url.split('?')[0];
+      const filename = path.split('/').pop() || 'pasted-image';
+      const processed = await processBlob(blob, filename);
+      await listStore.addItemFromUpload(processed);
+      urlInput = '';
+      urlInputOpen = false;
+    } catch (e) {
+      onerror?.(`Paste failed: ${(e as Error).message}`);
+    } finally {
+      urlLoading = false;
+    }
+  }
 </script>
 
 <div class="tray">
@@ -33,10 +75,35 @@
       <span class="tray-title">Item tray</span>
       <span class="tray-count">{localItems.length}</span>
     </div>
-    {#if localItems.length > 0}
-      <button class="clear-btn" onclick={() => listStore.clearAll()}>Clear all</button>
-    {/if}
+    <div class="tray-actions">
+      <button
+        class="header-btn"
+        onclick={toggleUrlInput}
+        aria-expanded={urlInputOpen}
+      ><ClipboardPaste size={14} aria-hidden="true" /> {urlInputOpen ? 'Cancel' : 'Paste URL'}</button>
+      {#if localItems.length > 0}
+        <button class="header-btn" onclick={() => listStore.clearAll()}>Clear all</button>
+      {/if}
+    </div>
   </div>
+  {#if urlInputOpen}
+    <form class="url-form" onsubmit={submitUrl}>
+      <input
+        bind:this={urlInputEl}
+        bind:value={urlInput}
+        type="url"
+        class="url-input"
+        placeholder="https://example.com/image.png"
+        spellcheck="false"
+        autocomplete="off"
+        disabled={urlLoading}
+        required
+      />
+      <button type="submit" class="url-submit" disabled={urlLoading || !urlInput.trim()}>
+        {urlLoading ? 'Fetching…' : 'Add'}
+      </button>
+    </form>
+  {/if}
   <div
     class="tray-body"
     class:empty={localItems.length === 0}
@@ -55,6 +122,8 @@
           {item}
           onresize={(size) => listStore.setItemDisplaySize(item.id, size)}
           onremove={() => listStore.removeItem(item.id)}
+          onremoveLabel="Remove image"
+          destructive
         />
       {/each}
     </div>
@@ -62,7 +131,7 @@
       <div class="empty-state">
         <span class="empty-emoji" aria-hidden="true">🐵</span>
         <span class="empty-text">Nothing to judge yet.</span>
-        <span class="empty-sub">Feed the monkey — drag images anywhere or click <strong>Upload</strong> above.</span>
+        <span class="empty-sub">Feed the monkey — drag images anywhere, click <strong>Upload</strong> above, or paste an image URL below.</span>
       </div>
     {/if}
   </div>
@@ -81,12 +150,19 @@
     align-items: center;
     justify-content: space-between;
     margin-bottom: var(--space-2);
+    gap: var(--space-2);
   }
 
   .tray-title-block {
     display: flex;
     align-items: baseline;
     gap: var(--space-2);
+  }
+
+  .tray-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
   }
 
   .tray-title {
@@ -107,18 +183,72 @@
     border-radius: var(--radius-full, 999px);
   }
 
-  .clear-btn {
+  .header-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
     background: transparent;
     color: var(--color-neutral-500);
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 500;
     padding: var(--space-1) var(--space-2);
     border-radius: var(--radius-sm);
+    transition: background-color var(--duration-fast) var(--ease-standard),
+                color var(--duration-fast) var(--ease-standard);
   }
 
-  .clear-btn:hover {
+  .header-btn:hover {
     background: var(--color-neutral-200);
     color: var(--on-surface-primary);
+  }
+
+  .url-form {
+    display: flex;
+    gap: var(--space-2);
+    margin-bottom: var(--space-2);
+  }
+
+  .url-input {
+    flex: 1;
+    min-width: 0;
+    height: 32px;
+    padding: 0 var(--space-2);
+    background: var(--surface-panel);
+    border: 1.5px solid var(--color-neutral-300);
+    border-radius: var(--radius-sm);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--on-surface-primary);
+    outline: none;
+  }
+
+  .url-input:focus {
+    border-color: var(--color-secondary);
+    box-shadow: 0 0 0 3px var(--color-secondary-subtle);
+  }
+
+  .url-input:disabled {
+    opacity: 0.6;
+  }
+
+  .url-submit {
+    height: 32px;
+    padding: 0 var(--space-3);
+    background: var(--color-secondary);
+    color: var(--color-on-secondary);
+    border-radius: var(--radius-sm);
+    font-weight: 600;
+    font-size: 12px;
+    transition: background-color var(--duration-fast) var(--ease-standard);
+  }
+
+  .url-submit:hover:not(:disabled) {
+    background: var(--color-secondary-hover);
+  }
+
+  .url-submit:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
   }
 
   .tray-body {

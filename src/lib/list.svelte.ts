@@ -10,6 +10,7 @@ import {
 } from './assets';
 import { processBlob } from './upload';
 import { makeTemplateBadgeSvg, svgToPngBlob, type Template } from './templates';
+import { announcer } from './announcer.svelte';
 import type { ShareSnapshot } from './share';
 
 const PERSIST_DEBOUNCE_MS = 300;
@@ -77,7 +78,10 @@ function createListStore() {
     redoStack.push(snapshotNow(tiers, items, paletteIndex, currentTitle));
     if (redoStack.length > HISTORY_LIMIT) redoStack.shift();
     const snap = undoStack.pop();
-    if (snap) restoreSnapshot(snap);
+    if (snap) {
+      restoreSnapshot(snap);
+      announcer.say('Undid last action');
+    }
   }
 
   function redo() {
@@ -85,7 +89,10 @@ function createListStore() {
     undoStack.push(snapshotNow(tiers, items, paletteIndex, currentTitle));
     if (undoStack.length > HISTORY_LIMIT) undoStack.shift();
     const snap = redoStack.pop();
-    if (snap) restoreSnapshot(snap);
+    if (snap) {
+      restoreSnapshot(snap);
+      announcer.say('Redid action');
+    }
   }
 
   function resetHistory() {
@@ -120,26 +127,39 @@ function createListStore() {
       tiers.splice(atIndex, 0, tier);
     }
     schedulePersist();
+    announcer.say(`Added tier ${tier.label}`);
     return tier;
   }
 
   function deleteTier(tierId: string) {
     const idx = tiers.findIndex((t) => t.id === tierId);
     if (idx === -1) return;
+    const tier = tiers[idx];
     pushHistory();
     tiers.splice(idx, 1);
+    let returned = 0;
     for (const item of items) {
-      if (item.tierId === tierId) item.tierId = null;
+      if (item.tierId === tierId) {
+        item.tierId = null;
+        returned++;
+      }
     }
     schedulePersist();
+    announcer.say(
+      returned > 0
+        ? `Deleted tier ${tier.label}. ${returned} item${returned === 1 ? '' : 's'} returned to tray.`
+        : `Deleted tier ${tier.label}`
+    );
   }
 
   function renameTier(tierId: string, label: string) {
     const tier = tiers.find((t) => t.id === tierId);
     if (!tier || tier.label === label) return;
     pushHistory();
+    const oldLabel = tier.label;
     tier.label = label;
     schedulePersist();
+    announcer.say(`Renamed tier from ${oldLabel} to ${label}`);
   }
 
   function setTierColor(tierId: string, color: string) {
@@ -214,6 +234,7 @@ function createListStore() {
     };
     items.push(item);
     schedulePersist();
+    announcer.say(`Added ${item.alt || 'image'} to tray`);
     return item;
   }
 
@@ -318,13 +339,26 @@ function createListStore() {
     pushHistory();
     items.splice(idx, 1);
     schedulePersist();
+    announcer.say('Removed item');
+  }
+
+  function moveItemToTray(id: string) {
+    const item = items.find((i) => i.id === id);
+    if (!item || item.tierId === null) return;
+    const tier = tiers.find((t) => t.id === item.tierId);
+    pushHistory();
+    item.tierId = null;
+    schedulePersist();
+    announcer.say(`Moved ${item.alt || 'item'} to tray${tier ? ` from ${tier.label}` : ''}`);
   }
 
   function clearAll() {
     if (items.length === 0) return;
     pushHistory();
+    const n = items.length;
     items.splice(0, items.length);
     schedulePersist();
+    announcer.say(`Cleared ${n} item${n === 1 ? '' : 's'} from tray`);
   }
 
   function setItemDisplaySize(id: string, size: DisplaySize) {
@@ -381,6 +415,7 @@ function createListStore() {
     currentTitle = record.title;
     isLoaded = true;
     resetHistory();
+    announcer.say(`Created new list ${record.title}`);
     return id;
   }
 
@@ -564,6 +599,7 @@ function createListStore() {
     addItemFromUpload,
     addItemToTier,
     removeItem,
+    moveItemToTray,
     clearAll,
     setItemDisplaySize,
     renameCurrentList,

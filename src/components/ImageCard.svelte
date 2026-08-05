@@ -6,11 +6,15 @@
   let {
     item,
     onresize,
-    onremove
+    onremove,
+    onremoveLabel = 'Remove image',
+    destructive = false
   }: {
     item: Item;
     onresize?: (size: DisplaySize) => void;
     onremove?: () => void;
+    onremoveLabel?: string;
+    destructive?: boolean;
   } = $props();
 
   let popoverOpen = $state(false);
@@ -62,8 +66,9 @@
     <button
       type="button"
       class="remove-handle"
-      aria-label="Remove image"
-      title="Remove"
+      class:destructive
+      aria-label={onremoveLabel}
+      title={onremoveLabel}
       onclick={remove}
     ><X size={14} strokeWidth={2.5} aria-hidden="true" /></button>
   {/if}
@@ -167,31 +172,35 @@
 
   .remove-handle {
     position: absolute;
-    top: 2px;
-    right: 2px;
-    width: 22px;
-    height: 22px;
-    border-radius: 6px;
+    top: 4px;
+    right: 4px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
     background: rgba(36, 30, 23, 0.75);
     color: white;
-    font-size: 16px;
-    line-height: 1;
-    font-weight: 600;
     display: flex;
     align-items: center;
     justify-content: center;
     opacity: 0;
     transition: opacity var(--duration-fast) var(--ease-standard),
-                background-color var(--duration-fast) var(--ease-standard);
+                background-color var(--duration-fast) var(--ease-standard),
+                transform var(--duration-fast) var(--ease-standard);
     z-index: 2;
   }
 
   .card:hover .remove-handle,
-  .card:focus-within .remove-handle {
+  .card:focus-within .remove-handle,
+  .remove-handle:focus-visible {
     opacity: 1;
   }
 
   .remove-handle:hover {
+    background: var(--on-surface-primary);
+    transform: scale(1.1);
+  }
+
+  .remove-handle.destructive:hover {
     background: var(--color-error-fill);
   }
 

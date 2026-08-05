@@ -169,7 +169,8 @@
           <ImageCard
             {item}
             onresize={(size) => listStore.setItemDisplaySize(item.id, size)}
-            onremove={() => listStore.removeItem(item.id)}
+            onremove={() => listStore.moveItemToTray(item.id)}
+            onremoveLabel="Return to tray"
           />
         {/each}
       </div>

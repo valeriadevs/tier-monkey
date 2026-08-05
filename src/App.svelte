@@ -18,6 +18,7 @@
   import { uploadFiles, type UploadResult } from './lib/upload';
   import { exportListToPng, downloadBlob, sanitizeFilename } from './lib/export';
   import { db } from './lib/db';
+  import { announcer } from './lib/announcer.svelte';
   import {
     buildShareSnapshotFromList,
     clearShareHash,
@@ -415,8 +416,11 @@
 </main>
 
 {#if view === 'editor'}
-  <ItemTray items={listStore.trayItems()} />
+  <ItemTray items={listStore.trayItems()} onerror={(msg) => showToast(msg, 'error')} />
 {/if}
+
+<!-- Screen-reader live region for non-toast announcements (rename, undo, etc.) -->
+<div class="sr-only" aria-live="polite" aria-atomic="true">{announcer.msg}</div>
 
 {#if isWindowDragOver && view === 'editor'}
   <div class="drop-overlay">
