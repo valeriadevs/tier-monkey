@@ -68,6 +68,7 @@
     toasts.push({ id, kind, message });
     // Cap stack to MAX_TOASTS — oldest is dropped.
     while (toasts.length > MAX_TOASTS) toasts.shift();
+    if (kind === 'error') announcer.say(message);
     if (durationMs > 0) {
       setTimeout(() => dismissToast(id), durationMs);
     }

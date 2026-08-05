@@ -4,6 +4,7 @@
   import ConfirmDialog from './ConfirmDialog.svelte';
   import { TEMPLATES, type Template } from '../lib/templates';
   import { listStore } from '../lib/list.svelte';
+  import { announcer } from '../lib/announcer.svelte';
 
   let {
     open,
@@ -51,7 +52,9 @@
       onapplied?.();
       onclose();
     } catch (e) {
-      error = `Could not apply template: ${(e as Error).message}`;
+      const msg = `Could not apply template: ${(e as Error).message}`;
+      error = msg;
+      announcer.say(msg);
     } finally {
       applying = null;
     }

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { Check } from '@lucide/svelte';
   import Modal from './Modal.svelte';
+  import { announcer } from '../lib/announcer.svelte';
 
   let {
     open,
@@ -23,11 +24,14 @@
     try {
       await navigator.clipboard.writeText(url);
       copied = true;
+      announcer.say('Link copied to clipboard');
       setTimeout(() => {
         copied = false;
       }, 2000);
     } catch (e) {
-      copyError = `Clipboard blocked: ${(e as Error).message}`;
+      const msg = `Clipboard blocked: ${(e as Error).message}`;
+      copyError = msg;
+      announcer.say(msg);
     }
   }
 
