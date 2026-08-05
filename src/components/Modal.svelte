@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { X } from '@lucide/svelte';
   import type { Snippet } from 'svelte';
 
   let {
@@ -45,13 +46,13 @@
     >
       <div class="modal-header">
         <h2 class="modal-title">{title}</h2>
-        <button
-          type="button"
-          class="modal-close"
-          onclick={onclose}
-          aria-label="Close"
-          title="Close"
-        >×</button>
+<button
+        type="button"
+        class="modal-close"
+        onclick={onclose}
+        aria-label="Close"
+        title="Close"
+      ><X size={18} aria-hidden="true" /></button>
       </div>
       <div class="modal-body">
         {#if children}{@render children()}{/if}
@@ -157,7 +158,6 @@
     gap: var(--space-2);
     justify-content: flex-end;
     padding: var(--space-3) var(--space-5);
-    border-top: 1.5px solid var(--border-default);
   }
 
   @media (max-width: 640px) {

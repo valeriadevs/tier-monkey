@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { Pencil, X } from '@lucide/svelte';
   import { dashboardStore, formatRelativeTime } from '../lib/dashboard.svelte';
   import { listStore } from '../lib/list.svelte';
   import { TEMPLATES } from '../lib/templates';
@@ -91,7 +92,7 @@
 <div class="dashboard">
   <section class="hero">
     <div class="hero-brand">
-      <span class="hero-logo">🐵</span>
+      <span class="hero-logo" aria-hidden="true">🐵</span>
       <h1 class="hero-title">
         Tier <span class="hero-accent">Monkey</span>
       </h1>
@@ -151,7 +152,7 @@
                   aria-label={`Rename ${list.title}`}
                   title="Rename"
                   onclick={() => startRename(list.id, list.title)}
-                >✎</button>
+                ><Pencil size={14} aria-hidden="true" /></button>
               {/if}
               <button
                 type="button"
@@ -159,7 +160,7 @@
                 aria-label={`Delete ${list.title}`}
                 title="Delete"
                 onclick={(e) => handleDelete(list.id, list.title, e)}
-              >×</button>
+              ><X size={16} aria-hidden="true" /></button>
             </div>
           </li>
         {/each}
@@ -176,7 +177,7 @@
           class="template-preview-card"
           onclick={onopenTemplates}
         >
-          <span class="template-preview-emoji">{template.emoji}</span>
+          <span class="template-preview-emoji" aria-hidden="true">{template.emoji}</span>
           <span class="template-preview-name">{template.name}</span>
         </button>
       {/each}
@@ -541,6 +542,18 @@
 
     .template-preview-name {
       font-size: 12px;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .template-preview {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  @media (max-width: 400px) {
+    .template-preview {
+      grid-template-columns: 1fr;
     }
   }
 

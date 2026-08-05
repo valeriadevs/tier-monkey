@@ -60,7 +60,7 @@
     </div>
     {#if localItems.length === 0}
       <div class="empty-state">
-        <span class="empty-emoji">🐵</span>
+        <span class="empty-emoji" aria-hidden="true">🐵</span>
         <span class="empty-text">Nothing to judge yet.</span>
         <span class="empty-sub">Feed the monkey — drag images anywhere or click <strong>Upload</strong> above.</span>
       </div>

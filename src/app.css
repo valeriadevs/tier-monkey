@@ -1,5 +1,8 @@
 @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
 
+/* Hint the browser to warm up the font connection before CSS parses. */
+@import url('https://fonts.gstatic.com');
+
 :root {
   color-scheme: light;
 
@@ -61,13 +64,19 @@
   --space-5: 20px;
   --space-6: 24px;
   --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
 
+  --radius-xs: 4px;
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 16px;
   --radius-full: 999px;
 
   --shadow-sticker: 3px 3px 0 #241E17;
+  --shadow-sticker-hover: 4px 4px 0 #241E17;
+  --shadow-sticker-active: 1px 1px 0 #241E17;
   --elevation-1: 0 1px 2px rgba(36, 30, 23, 0.08);
   --elevation-2: 0 4px 12px rgba(36, 30, 23, 0.12);
   --elevation-3: 0 12px 32px rgba(36, 30, 23, 0.18);
@@ -86,6 +95,20 @@
   --font-display: 'Fredoka', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-ui: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, 'Cascadia Code', monospace;
+
+  /* Type scale — composite tokens so components stop hardcoding font-size + line-height */
+  --text-display: 40px;
+  --text-h1: 32px;
+  --text-h2: 24px;
+  --text-h3: 20px;
+  --text-body-lg: 18px;
+  --text-body: 16px;
+  --text-body-sm: 14px;
+  --text-caption: 12px;
+
+  --leading-tight: 1.2;
+  --leading-snug: 1.35;
+  --leading-normal: 1.5;
 
   /* Canvas pattern color — light mode uses warm ink at low opacity */
   --canvas-dot: rgba(36, 30, 23, 0.05);
@@ -143,8 +166,10 @@
   --border-default: var(--color-neutral-200);
   --border-strong: var(--color-neutral-300);
 
-  --shadow-sticker: 3px 3px 0 rgba(0, 0, 0, 0.6);
-  --elevation-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+--shadow-sticker: 3px 3px 0 rgba(0, 0, 0, 0.6);
+    --shadow-sticker-hover: 4px 4px 0 rgba(0, 0, 0, 0.7);
+    --shadow-sticker-active: 1px 1px 0 rgba(0, 0, 0, 0.5);
+    --elevation-1: 0 1px 2px rgba(0, 0, 0, 0.4);
   --elevation-2: 0 4px 12px rgba(0, 0, 0, 0.5);
   --elevation-3: 0 12px 32px rgba(0, 0, 0, 0.6);
   --elevation-drag: 0 8px 24px rgba(0, 0, 0, 0.7);
@@ -204,6 +229,8 @@
     --border-strong: var(--color-neutral-300);
 
     --shadow-sticker: 3px 3px 0 rgba(0, 0, 0, 0.6);
+    --shadow-sticker-hover: 4px 4px 0 rgba(0, 0, 0, 0.7);
+    --shadow-sticker-active: 1px 1px 0 rgba(0, 0, 0, 0.5);
     --elevation-1: 0 1px 2px rgba(0, 0, 0, 0.4);
     --elevation-2: 0 4px 12px rgba(0, 0, 0, 0.5);
     --elevation-3: 0 12px 32px rgba(0, 0, 0, 0.6);
@@ -271,5 +298,17 @@ button:focus-visible {
   body {
     padding-left: max(0px, env(safe-area-inset-left));
     padding-right: max(0px, env(safe-area-inset-right));
+  }
+}
+
+/* Honor user motion preferences — UI design system §2.7 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

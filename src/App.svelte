@@ -1,4 +1,17 @@
 <script lang="ts">
+  import {
+    ArrowLeft,
+    Check,
+    Download,
+    Moon,
+    Monitor,
+    Sun,
+    TriangleAlert,
+    Undo2,
+    Redo2,
+    Upload,
+    ImageDown
+  } from '@lucide/svelte';
   import { listStore } from './lib/list.svelte';
   import { themeStore } from './lib/theme.svelte';
   import { uploadFiles, type UploadResult } from './lib/upload';
@@ -39,9 +52,6 @@
 
   themeStore.load();
 
-  const themeIcon = $derived(
-    themeStore.mode === 'auto' ? '🌓' : themeStore.mode === 'light' ? '☀' : '🌙'
-  );
   const themeLabel = $derived(
     themeStore.mode === 'auto' ? 'Auto theme' : themeStore.mode === 'light' ? 'Light theme' : 'Dark theme'
   );
@@ -313,10 +323,10 @@
   <div class="brand">
     {#if view === 'editor'}
       <button class="back-btn" onclick={gotoDashboard} aria-label="Back to dashboard" title="Back to dashboard">
-        ←
+        <ArrowLeft size={18} aria-hidden="true" />
       </button>
     {/if}
-    <span class="logo">🐵</span>
+    <span class="logo" aria-hidden="true">🐵</span>
     <span class="brand-name">Tier <span class="brand-accent">Monkey</span></span>
   </div>
   <div class="toolbar-spacer"></div>
@@ -327,15 +337,15 @@
       disabled={!listStore.canUndo}
       title="Undo (Ctrl+Z)"
       aria-label="Undo"
-    >↶</button>
+    ><Undo2 size={18} aria-hidden="true" /></button>
     <button
       class="btn-icon"
       onclick={() => listStore.redo()}
       disabled={!listStore.canRedo}
       title="Redo (Ctrl+Shift+Z)"
       aria-label="Redo"
-    >↷</button>
-    <button class="btn-secondary" onclick={pickFiles}>⬆ Upload</button>
+    ><Redo2 size={18} aria-hidden="true" /></button>
+    <button class="btn-secondary" onclick={pickFiles}><Upload size={16} aria-hidden="true" /> Upload</button>
     <button class="btn-secondary" onclick={openTemplatesModal}>Templates</button>
     <button class="btn-secondary" onclick={handleShare} disabled={isSharing}>
       {isSharing ? 'Sharing…' : 'Share'}
@@ -347,11 +357,17 @@
     title={themeLabel}
     aria-label={themeLabel}
   >
-    {themeIcon}
+    {#if themeStore.mode === 'auto'}
+      <Monitor size={18} aria-hidden="true" />
+    {:else if themeStore.mode === 'light'}
+      <Sun size={18} aria-hidden="true" />
+    {:else}
+      <Moon size={18} aria-hidden="true" />
+    {/if}
   </button>
   {#if view === 'editor'}
     <button class="btn-primary" onclick={handleExport} disabled={isExporting}>
-      {isExporting ? 'Exporting…' : '⬇ Export'}
+      {#if isExporting}Exporting…{:else}<Download size={16} aria-hidden="true" /> Export{/if}
     </button>
   {/if}
 </header>
@@ -385,20 +401,20 @@
 
 {#if isWindowDragOver && view === 'editor'}
   <div class="drop-overlay">
-    <div class="drop-overlay-text">📥 Drop images anywhere to upload</div>
+    <div class="drop-overlay-text"><ImageDown size={20} aria-hidden="true" /> Drop images anywhere to upload</div>
   </div>
 {/if}
 
 {#if uploadError}
   <div class="toast" role="alert">
-    <span class="toast-icon">⚠</span>
+    <span class="toast-icon"><TriangleAlert size={18} aria-hidden="true" /></span>
     <span class="toast-text">{uploadError}</span>
   </div>
 {/if}
 
 {#if infoToast}
   <div class="toast info" role="status">
-    <span class="toast-icon">✓</span>
+    <span class="toast-icon"><Check size={18} aria-hidden="true" /></span>
     <span class="toast-text">{infoToast}</span>
   </div>
 {/if}
@@ -434,7 +450,7 @@
 
 {#if shareImportError}
   <div class="toast" role="alert">
-    <span class="toast-icon">⚠</span>
+    <span class="toast-icon"><TriangleAlert size={18} aria-hidden="true" /></span>
     <span class="toast-text">{shareImportError}</span>
   </div>
 {/if}
@@ -510,6 +526,9 @@
     font-weight: 600;
     font-size: 14px;
     box-shadow: var(--shadow-sticker);
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
     transition: transform var(--duration-fast) var(--ease-standard),
                 background-color var(--duration-fast) var(--ease-standard);
   }
@@ -541,6 +560,9 @@
     border-radius: var(--radius-sm);
     font-weight: 500;
     font-size: 14px;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
     transition: border-color var(--duration-fast) var(--ease-standard),
                 background-color var(--duration-fast) var(--ease-standard);
   }
@@ -639,6 +661,9 @@
     font-size: 22px;
     box-shadow: var(--shadow-sticker);
     color: var(--color-secondary);
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
   }
 
   .toast {
@@ -673,6 +698,14 @@
     right: var(--space-4);
     z-index: 5;
     pointer-events: none;
+  }
+
+  @media (max-width: 640px) {
+    /* Status bar overlaps the item tray on small screens. Hide it there —
+       the tray header already shows the same counts at a glance. */
+    .status-bar {
+      display: none;
+    }
   }
 
   .status-text {

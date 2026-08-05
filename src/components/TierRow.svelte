@@ -1,5 +1,6 @@
 <script lang="ts">
   import { dndzone, SHADOW_ITEM_MARKER_PROPERTY_NAME } from 'svelte-dnd-action';
+  import { ChevronUp, ChevronDown, Ellipsis, Palette, Pencil, Trash2 } from '@lucide/svelte';
   import type { Item, Tier } from '../lib/types';
   import { DND_TYPE_ITEMS } from '../lib/types';
   import { listStore } from '../lib/list.svelte';
@@ -173,16 +174,16 @@
       aria-label="Tier options"
       title="Tier options"
     >
-      ⋯
+      <Ellipsis size={18} aria-hidden="true" />
     </button>
     {#if menuOpen}
       <div class="tier-menu" role="menu">
-        <button class="menu-item" onclick={() => { startRename(); menuOpen = false; }}>✎ Rename</button>
-        <button class="menu-item" onclick={() => { colorPickerOpen = true; menuOpen = false; }}>🎨 Change color</button>
-        <button class="menu-item" onclick={() => { onaddtierabove(); menuOpen = false; }}>↑ Add tier above</button>
-        <button class="menu-item" onclick={() => { onaddtierbelow(); menuOpen = false; }}>↓ Add tier below</button>
-        <div class="menu-divider"></div>
-        <button class="menu-item destructive" onclick={deleteThisTier}>🗑 Delete tier</button>
+        <button class="menu-item" onclick={() => { startRename(); menuOpen = false; }}><Pencil size={15} aria-hidden="true" /> Rename</button>
+        <button class="menu-item" onclick={() => { colorPickerOpen = true; menuOpen = false; }}><Palette size={15} aria-hidden="true" /> Change color</button>
+        <button class="menu-item" onclick={() => { onaddtierabove(); menuOpen = false; }}><ChevronUp size={15} aria-hidden="true" /> Add tier above</button>
+        <button class="menu-item" onclick={() => { onaddtierbelow(); menuOpen = false; }}><ChevronDown size={15} aria-hidden="true" /> Add tier below</button>
+        <div class="menu-divider" aria-hidden="true"></div>
+        <button class="menu-item destructive" onclick={deleteThisTier}><Trash2 size={15} aria-hidden="true" /> Delete tier</button>
       </div>
     {/if}
   </div>
@@ -191,7 +192,7 @@
 <style>
   .tier-row {
     display: flex;
-    min-height: 112px;
+    min-height: 88px;
     background: var(--surface-panel);
     border: 1.5px solid var(--color-neutral-200);
     border-radius: var(--radius-md);
@@ -366,6 +367,9 @@
   }
 
   .menu-item {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
     text-align: left;
     padding: var(--space-2) var(--space-3);
     border-radius: var(--radius-sm);
@@ -373,6 +377,7 @@
     color: var(--on-surface-primary);
     font-size: 14px;
     font-weight: 500;
+    width: 100%;
   }
 
   .menu-item:hover {
@@ -395,11 +400,11 @@
 
   @media (max-width: 768px) {
     .tier-row {
-      min-height: 88px;
+      min-height: 72px;
     }
 
     .tier-label {
-      width: 80px;
+      width: 72px;
     }
 
     .tier-label-text {
@@ -408,7 +413,7 @@
     }
 
     .tier-dropzone {
-      min-height: 72px;
+      min-height: 64px;
       padding: var(--space-1) var(--space-2);
     }
 
@@ -427,11 +432,17 @@
   }
 
   @media (max-width: 480px) {
-    .tier-label {
-      width: 64px;
+    .tier-row {
+      min-height: 64px;
     }
+
+    .tier-label {
+      width: 56px;
+    }
+
     .tier-label-text {
-      font-size: 16px;
+      font-size: 14px;
+      letter-spacing: 0;
     }
   }
 </style>
