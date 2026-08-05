@@ -38,8 +38,8 @@ function snapshotNow(
   currentTitle: string
 ): Snapshot {
   return {
-    tiers: structuredClone(tiers),
-    items: structuredClone(items),
+    tiers: [...tiers],
+    items: [...items],
     paletteIndex,
     currentTitle
   };
@@ -75,8 +75,8 @@ function createListStore() {
   }
 
   function restoreSnapshot(snap: Snapshot) {
-    tiers.splice(0, tiers.length, ...structuredClone(snap.tiers));
-    items.splice(0, items.length, ...structuredClone(snap.items));
+    tiers.splice(0, tiers.length, ...snap.tiers);
+    items.splice(0, items.length, ...snap.items);
     paletteIndex = snap.paletteIndex;
     currentTitle = snap.currentTitle;
     schedulePersist();
@@ -225,12 +225,15 @@ function createListStore() {
     }
   }
 
-  async function addItemFromUpload(image: ProcessedImage): Promise<Item> {
-    pushHistory();
+  async function persistImage(
+    image: ProcessedImage,
+    tierId: string | null,
+    displaySize: DisplaySize
+  ): Promise<Item> {
     const asset = await saveAsset(image.masterBlob, image.thumbBlob);
     const urls = await resolveAssetUrls(asset.id);
     cacheAssetUrls(asset.id, urls);
-    const item: Item = {
+    return {
       id: crypto.randomUUID(),
       assetId: asset.id,
       url: urls.url,
@@ -238,9 +241,14 @@ function createListStore() {
       width: image.width,
       height: image.height,
       alt: image.alt,
-      tierId: null,
-      displaySize: 'M'
+      tierId,
+      displaySize
     };
+  }
+
+  async function addItemFromUpload(image: ProcessedImage): Promise<Item> {
+    pushHistory();
+    const item = await persistImage(image, null, 'M');
     items.push(item);
     schedulePersist();
     announcer.say(`Added ${item.alt || 'image'} to tray`);
@@ -253,20 +261,7 @@ function createListStore() {
     displaySize: DisplaySize = 'M'
   ): Promise<Item> {
     pushHistory();
-    const asset = await saveAsset(processed.masterBlob, processed.thumbBlob);
-    const urls = await resolveAssetUrls(asset.id);
-    cacheAssetUrls(asset.id, urls);
-    const item: Item = {
-      id: crypto.randomUUID(),
-      assetId: asset.id,
-      url: urls.url,
-      thumbUrl: urls.thumbUrl,
-      width: processed.width,
-      height: processed.height,
-      alt: processed.alt,
-      tierId,
-      displaySize
-    };
+    const item = await persistImage(processed, tierId, displaySize);
     items.push(item);
     schedulePersist();
     return item;

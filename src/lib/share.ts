@@ -19,10 +19,22 @@ export interface ShareSnapshot {
 export async function encodeShare(snapshot: ShareSnapshot): Promise<string> {
   const json = JSON.stringify(snapshot);
   const stream = new Blob([json]).stream().pipeThrough(new CompressionStream('gzip'));
-  const compressed = new Uint8Array(await new Response(stream).arrayBuffer());
-  let binary = '';
-  for (let i = 0; i < compressed.length; i++) binary += String.fromCharCode(compressed[i]);
-  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  const compressed = new Blob([await new Response(stream).arrayBuffer()]);
+  const dataUrl = await blobToDataUrl(compressed);
+  return dataUrl
+    .slice(dataUrl.indexOf(',') + 1)
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
+}
+
+function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(reader.error ?? new Error('FileReader failed'));
+    reader.readAsDataURL(blob);
+  });
 }
 
 export async function decodeShare(payload: string): Promise<ShareSnapshot> {
