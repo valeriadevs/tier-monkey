@@ -27,19 +27,12 @@ export type UploadResult = {
 export async function processBlob(blob: Blob, alt: string): Promise<ProcessedImage> {
   const masterBitmap = await createImageBitmap(blob, { imageOrientation: 'from-image' });
   const masterBlob = await rasterizeToBlob(masterBitmap, MASTER_SIZE);
-
-  const thumbBitmap = await createImageBitmap(masterBitmap, {
-    resizeWidth: THUMB_SIZE,
-    resizeHeight: THUMB_SIZE,
-    resizeQuality: 'high'
-  });
-  const thumbBlob = await rasterizeToBlob(thumbBitmap, THUMB_SIZE);
+  const thumbBlob = await rasterizeToBlob(masterBitmap, THUMB_SIZE);
 
   const width = masterBitmap.width;
   const height = masterBitmap.height;
 
   masterBitmap.close();
-  thumbBitmap.close();
 
   return { masterBlob, thumbBlob, width, height, alt };
 }
@@ -90,5 +83,28 @@ export async function uploadFiles(
   onResult: (result: UploadResult) => void
 ): Promise<void> {
   const arr = Array.from(files);
-  await Promise.all(arr.map((f) => processFile(f).then(onResult)));
+  await mapWithLimit(arr, MAX_CONCURRENT_UPLOADS, async (f) => {
+    onResult(await processFile(f));
+  });
+}
+
+const MAX_CONCURRENT_UPLOADS = 3;
+
+async function mapWithLimit<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T) => Promise<R>
+): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let cursor = 0;
+  const workerCount = Math.min(limit, items.length);
+  const workers = Array.from({ length: workerCount }, async () => {
+    while (true) {
+      const idx = cursor++;
+      if (idx >= items.length) return;
+      results[idx] = await fn(items[idx]);
+    }
+  });
+  await Promise.all(workers);
+  return results;
 }

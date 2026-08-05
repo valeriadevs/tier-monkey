@@ -57,20 +57,25 @@ export async function buildShareSnapshotFromList(
   const tierIndexById = new Map<string, number>();
   list.tiers.forEach((t, i) => tierIndexById.set(t.id, i));
 
+  const imageIndexByAssetId = new Map<string, number>();
   const images: string[] = [];
   const items: ShareSnapshot['items'] = [];
 
   for (const item of list.items) {
-    const blob = await getAssetBlob(item.assetId);
-    if (!blob) continue;
-    const small = await resizeImageForShare(blob);
-    const buf = await small.arrayBuffer();
-    const bytes = new Uint8Array(buf);
-    let binary = '';
-    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
-    const imgBase64 = btoa(binary);
-    const imgIdx = images.length;
-    images.push(imgBase64);
+    let imgIdx = imageIndexByAssetId.get(item.assetId);
+    if (imgIdx === undefined) {
+      const blob = await getAssetBlob(item.assetId);
+      if (!blob) continue;
+      const small = await resizeImageForShare(blob);
+      const buf = await small.arrayBuffer();
+      const bytes = new Uint8Array(buf);
+      let binary = '';
+      for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+      const imgBase64 = btoa(binary);
+      imgIdx = images.length;
+      images.push(imgBase64);
+      imageIndexByAssetId.set(item.assetId, imgIdx);
+    }
     items.push({
       imgIdx,
       tierIdx: item.tierId === null ? null : tierIndexById.get(item.tierId) ?? null,
