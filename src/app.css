@@ -112,6 +112,13 @@
 
   /* Canvas pattern color — light mode uses warm ink at low opacity */
   --canvas-dot: rgba(36, 30, 23, 0.05);
+
+  /* Ink-tone transparent utilities — follow dark mode via color-mix on on-surface-primary */
+  --ink-04: color-mix(in srgb, var(--on-surface-primary) 4%, transparent);
+  --ink-08: color-mix(in srgb, var(--on-surface-primary) 8%, transparent);
+  --ink-16: color-mix(in srgb, var(--on-surface-primary) 16%, transparent);
+  --ink-30: color-mix(in srgb, var(--on-surface-primary) 30%, transparent);
+  --ink-75: color-mix(in srgb, var(--on-surface-primary) 75%, transparent);
 }
 
 /* Manual dark mode override */

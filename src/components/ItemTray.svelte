@@ -142,7 +142,7 @@
     background: var(--surface-sunken);
     border-top: 1.5px solid var(--color-neutral-200);
     padding: var(--space-3) var(--space-6) var(--space-4);
-    box-shadow: 0 -2px 8px rgba(36, 30, 23, 0.04);
+    box-shadow: 0 -2px 8px var(--ink-04);
   }
 
   .tray-header {

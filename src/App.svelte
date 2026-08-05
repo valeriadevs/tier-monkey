@@ -496,7 +496,7 @@
     padding: 0 var(--space-6);
     background: var(--surface-panel);
     border-bottom: 1.5px solid var(--color-neutral-200);
-    box-shadow: 0 1px 3px rgba(36, 30, 23, 0.04);
+    box-shadow: 0 1px 3px var(--ink-04);
   }
 
   .brand {
@@ -786,7 +786,7 @@
     background: var(--surface-panel);
     padding: var(--space-1) var(--space-2);
     border-radius: var(--radius-sm);
-    box-shadow: 0 1px 2px rgba(36, 30, 23, 0.04);
+    box-shadow: 0 1px 2px var(--ink-04);
   }
 
   @media (max-width: 768px) {

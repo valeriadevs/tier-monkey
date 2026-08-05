@@ -289,7 +289,7 @@
     height: 18px;
     border-radius: 50%;
     background: rgba(255, 255, 255, 0.4);
-    border: 2px solid rgba(36, 30, 23, 0.3);
+    border: 2px solid var(--ink-30);
     cursor: pointer;
     opacity: 0;
     transition: opacity var(--duration-fast) var(--ease-standard),

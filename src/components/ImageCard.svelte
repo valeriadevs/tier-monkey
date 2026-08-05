@@ -105,7 +105,7 @@
   .card {
     position: relative;
     border-radius: var(--radius-md);
-    border: 1.5px solid rgba(36, 30, 23, 0.08);
+    border: 1.5px solid var(--ink-08);
     box-shadow: var(--elevation-1);
     background: var(--surface-panel);
     flex-shrink: 0;
@@ -117,7 +117,7 @@
 
   .card:hover {
     box-shadow: var(--elevation-2);
-    border-color: rgba(36, 30, 23, 0.16);
+    border-color: var(--ink-16);
   }
 
   .card.has-popover {
@@ -147,7 +147,7 @@
     width: 22px;
     height: 22px;
     border-radius: 6px;
-    background: rgba(36, 30, 23, 0.75);
+    background: var(--ink-75);
     color: white;
     font-size: 13px;
     line-height: 1;
@@ -177,7 +177,7 @@
     width: 20px;
     height: 20px;
     border-radius: 50%;
-    background: rgba(36, 30, 23, 0.75);
+    background: var(--ink-75);
     color: white;
     display: flex;
     align-items: center;
