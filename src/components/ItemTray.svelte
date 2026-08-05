@@ -127,6 +127,7 @@
     padding: var(--space-3);
     border: 1.5px dashed transparent;
     border-radius: var(--radius-md);
+    touch-action: none;
     transition: background-color var(--duration-fast) var(--ease-standard),
                 border-color var(--duration-fast) var(--ease-standard);
   }

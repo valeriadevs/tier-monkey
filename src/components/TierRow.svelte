@@ -294,6 +294,7 @@
     border-left: 1.5px dashed var(--color-neutral-300);
     border-radius: 0 var(--radius-md) var(--radius-md) 0;
     min-height: 96px;
+    touch-action: none;
     transition: background-color var(--duration-fast) var(--ease-standard),
                 box-shadow var(--duration-fast) var(--ease-standard);
   }

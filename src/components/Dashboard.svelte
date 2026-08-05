@@ -254,12 +254,12 @@
   .new-btn:hover:not(:disabled) {
     background: var(--color-primary-hover);
     transform: translateY(-1px);
-    box-shadow: 4px 4px 0 #241E17;
+    box-shadow: var(--shadow-sticker-hover);
   }
 
   .new-btn:active:not(:disabled) {
     transform: translateY(2px);
-    box-shadow: 1px 1px 0 #241E17;
+    box-shadow: var(--shadow-sticker-active);
   }
 
   .new-btn:disabled {

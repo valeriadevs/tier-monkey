@@ -119,9 +119,9 @@
     font-family: var(--font-display);
     font-weight: 600;
     font-size: 11px;
-    color: white;
+    color: var(--color-on-primary);
     padding: 3px 8px;
-    border-radius: 6px;
+    border-radius: var(--radius-xs);
     min-width: 28px;
     text-align: center;
   }

@@ -536,12 +536,12 @@
   .btn-primary:hover {
     background: var(--color-primary-hover);
     transform: translateY(-1px);
-    box-shadow: 4px 4px 0 #241E17;
+    box-shadow: var(--shadow-sticker-hover);
   }
 
   .btn-primary:active {
     transform: translateY(2px);
-    box-shadow: 1px 1px 0 #241E17;
+    box-shadow: var(--shadow-sticker-active);
   }
 
   .btn-primary:disabled {
