@@ -10,7 +10,8 @@
     Undo2,
     Redo2,
     Upload,
-    ImageDown
+    ImageDown,
+    X
   } from '@lucide/svelte';
   import { listStore } from './lib/list.svelte';
   import { themeStore } from './lib/theme.svelte';
@@ -36,8 +37,14 @@
   type View = 'dashboard' | 'editor';
   let view = $state<View>('dashboard');
 
-  let uploadError = $state<string | null>(null);
-  let infoToast = $state<string | null>(null);
+  type Toast = {
+    id: string;
+    kind: 'error' | 'info';
+    message: string;
+  };
+  const MAX_TOASTS = 3;
+  let toasts = $state<Toast[]>([]);
+
   let isWindowDragOver = $state(false);
   let fileInputEl: HTMLInputElement | undefined = $state();
   let isExporting = $state(false);
@@ -45,7 +52,6 @@
 
   let templatesModalOpen = $state(false);
   let shareImportSnapshot = $state<ShareSnapshot | null>(null);
-  let shareImportError = $state<string | null>(null);
   let isImportingShare = $state(false);
   let shareLinkUrl = $state<string | null>(null);
   let shareLinkSizeKb = $state(0);
@@ -56,21 +62,26 @@
     themeStore.mode === 'auto' ? 'Auto theme' : themeStore.mode === 'light' ? 'Light theme' : 'Dark theme'
   );
 
-  function showToast(msg: string, durationMs = 4000) {
-    infoToast = msg;
-    setTimeout(() => {
-      infoToast = null;
-    }, durationMs);
+  function showToast(message: string, kind: Toast['kind'] = 'info', durationMs = kind === 'error' ? 6000 : 4000) {
+    const id = crypto.randomUUID().slice(0, 8);
+    toasts.push({ id, kind, message });
+    // Cap stack to MAX_TOASTS — oldest is dropped.
+    while (toasts.length > MAX_TOASTS) toasts.shift();
+    if (durationMs > 0) {
+      setTimeout(() => dismissToast(id), durationMs);
+    }
+  }
+
+  function dismissToast(id: string) {
+    const idx = toasts.findIndex((t) => t.id === id);
+    if (idx !== -1) toasts.splice(idx, 1);
   }
 
   function handleResult(result: UploadResult) {
     if (result.image) {
       void listStore.addItemFromUpload(result.image);
     } else if (result.error) {
-      uploadError = `${result.error.filename}: ${result.error.reason}`;
-      setTimeout(() => {
-        uploadError = null;
-      }, 5000);
+      showToast(`${result.error.filename}: ${result.error.reason}`, 'error');
     }
   }
 
@@ -159,12 +170,12 @@
         tiers: listStore.tiers,
         items: listStore.items
       });
-      downloadBlob(blob, `${sanitizeFilename(listStore.currentTitle)}.png`);
+      const filename = `${sanitizeFilename(listStore.currentTitle)}.png`;
+      downloadBlob(blob, filename);
+      const sizeKb = Math.round(blob.size / 1024);
+      showToast(`Exported ${filename} (${sizeKb} KB)`);
     } catch (e) {
-      uploadError = `Export failed: ${(e as Error).message}`;
-      setTimeout(() => {
-        uploadError = null;
-      }, 5000);
+      showToast(`Export failed: ${(e as Error).message}`, 'error');
     } finally {
       isExporting = false;
     }
@@ -194,10 +205,7 @@
   async function handleShare() {
     if (isSharing) return;
     if (listStore.tiers.length === 0) {
-      uploadError = 'Add some tiers before sharing.';
-      setTimeout(() => {
-        uploadError = null;
-      }, 4000);
+      showToast('Add some tiers before sharing.', 'error');
       return;
     }
     isSharing = true;
@@ -223,10 +231,7 @@
         showToast(`Share link ready (${sizeKb} KB) — see dialog`);
       }
     } catch (e) {
-      uploadError = `Share failed: ${(e as Error).message}`;
-      setTimeout(() => {
-        uploadError = null;
-      }, 5000);
+      showToast(`Share failed: ${(e as Error).message}`, 'error');
     } finally {
       isSharing = false;
     }
@@ -243,7 +248,7 @@
       const snap = await decodeShare(encoded);
       shareImportSnapshot = snap;
     } catch (e) {
-      shareImportError = `Bad share link: ${(e as Error).message}`;
+      showToast(`Bad share link: ${(e as Error).message}`, 'error');
       clearShareHash();
     }
   }
@@ -257,10 +262,7 @@
       shareImportSnapshot = null;
       clearShareHash();
     } catch (e) {
-      uploadError = `Import failed: ${(e as Error).message}`;
-      setTimeout(() => {
-        uploadError = null;
-      }, 5000);
+      showToast(`Import failed: ${(e as Error).message}`, 'error');
     } finally {
       isImportingShare = false;
     }
@@ -297,6 +299,21 @@
     void initShareImport();
   }
 
+  // Flush any pending debounced save before the page goes away.
+  // pagehide fires on both real unload and bfcache restoration; Dexie
+  // writes initiated here still complete even after the page closes.
+  function onPageHide() {
+    void listStore.flushPendingSave();
+  }
+
+  // Belt-and-braces: if the tab is hidden and the user just made a
+  // change, persist immediately rather than waiting on the debounce.
+  function onVisibilityChange() {
+    if (document.visibilityState === 'hidden') {
+      void listStore.flushPendingSave();
+    }
+  }
+
   const totalItems = $derived(listStore.items.length);
   const rankedItems = $derived(listStore.items.filter((i) => i.tierId !== null).length);
 </script>
@@ -304,6 +321,8 @@
 <svelte:window
   onkeydown={onKeydown}
   onhashchange={onHashChange}
+  onpagehide={onPageHide}
+  onvisibilitychange={onVisibilityChange}
   ondragenter={onWindowDragEnter}
   ondragover={onWindowDragOver}
   ondragleave={onWindowDragLeave}
@@ -405,17 +424,30 @@
   </div>
 {/if}
 
-{#if uploadError}
-  <div class="toast" role="alert">
-    <span class="toast-icon"><TriangleAlert size={18} aria-hidden="true" /></span>
-    <span class="toast-text">{uploadError}</span>
-  </div>
-{/if}
-
-{#if infoToast}
-  <div class="toast info" role="status">
-    <span class="toast-icon"><Check size={18} aria-hidden="true" /></span>
-    <span class="toast-text">{infoToast}</span>
+{#if toasts.length > 0}
+  <div class="toast-stack" aria-live="polite">
+    {#each toasts as toast (toast.id)}
+      <div
+        class="toast"
+        class:info={toast.kind === 'info'}
+        role={toast.kind === 'error' ? 'alert' : 'status'}
+      >
+        <span class="toast-icon">
+          {#if toast.kind === 'error'}
+            <TriangleAlert size={18} aria-hidden="true" />
+          {:else}
+            <Check size={18} aria-hidden="true" />
+          {/if}
+        </span>
+        <span class="toast-text">{toast.message}</span>
+        <button
+          type="button"
+          class="toast-dismiss"
+          onclick={() => dismissToast(toast.id)}
+          aria-label="Dismiss notification"
+        ><X size={14} aria-hidden="true" /></button>
+      </div>
+    {/each}
   </div>
 {/if}
 
@@ -447,13 +479,6 @@
   sizeKb={shareLinkSizeKb}
   onclose={closeShareLinkModal}
 />
-
-{#if shareImportError}
-  <div class="toast" role="alert">
-    <span class="toast-icon"><TriangleAlert size={18} aria-hidden="true" /></span>
-    <span class="toast-text">{shareImportError}</span>
-  </div>
-{/if}
 
 <style>
   .toolbar {
@@ -666,22 +691,38 @@
     gap: var(--space-2);
   }
 
-  .toast {
+  .toast-stack {
     position: fixed;
     bottom: 220px;
     left: 50%;
     transform: translateX(-50%);
     z-index: 100;
     display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    align-items: center;
+    pointer-events: none;
+  }
+
+  .toast {
+    pointer-events: auto;
+    display: flex;
     align-items: center;
     gap: var(--space-2);
     background: var(--color-neutral-900);
     color: white;
-    padding: var(--space-3) var(--space-4);
+    padding: var(--space-2) var(--space-3);
     border-radius: var(--radius-md);
     box-shadow: var(--elevation-2);
     font-size: 14px;
-    max-width: 480px;
+    max-width: 360px;
+    min-width: 240px;
+    animation: toastIn var(--duration-normal) var(--ease-spring);
+  }
+
+  @keyframes toastIn {
+    from { opacity: 0; transform: translateY(8px) scale(0.96); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
   }
 
   .toast.info {
@@ -689,7 +730,33 @@
   }
 
   .toast-icon {
-    font-size: 18px;
+    flex-shrink: 0;
+    display: flex;
+  }
+
+  .toast-text {
+    flex: 1;
+    min-width: 0;
+    line-height: 1.35;
+  }
+
+  .toast-dismiss {
+    flex-shrink: 0;
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-xs);
+    color: rgba(255, 255, 255, 0.7);
+    background: transparent;
+    transition: background-color var(--duration-fast) var(--ease-standard),
+                color var(--duration-fast) var(--ease-standard);
+  }
+
+  .toast-dismiss:hover {
+    background: rgba(255, 255, 255, 0.15);
+    color: white;
   }
 
   .status-bar {
@@ -759,9 +826,13 @@
       gap: var(--space-2);
     }
 
+    .toast-stack {
+      bottom: 180px;
+    }
+
     .toast {
       max-width: calc(100vw - 32px);
-      bottom: 180px;
+      min-width: 0;
       font-size: 13px;
     }
 
@@ -784,7 +855,7 @@
       min-width: 0;
     }
 
-    .toast {
+    .toast-stack {
       bottom: 240px;
     }
   }

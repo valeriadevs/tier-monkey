@@ -28,6 +28,21 @@ export type ExportInput = {
 };
 
 export async function exportListToPng(input: ExportInput): Promise<Blob> {
+  // Wait for the display font to actually be rasterizable. Without this,
+  // a fresh export before Google Fonts has loaded paints fallback
+  // sans-serif — the PNG doesn't match what's on screen.
+  if (typeof document !== 'undefined' && document.fonts?.ready) {
+    try {
+      await Promise.all([
+        document.fonts.ready,
+        document.fonts.load(`600 32px ${FONT_DISPLAY}`),
+        document.fonts.load(`600 36px ${FONT_DISPLAY}`)
+      ]);
+    } catch {
+      // Best-effort: fall through and let canvas use whatever is available.
+    }
+  }
+
   const rankedItems = input.items.filter((i) => i.tierId !== null);
 
   const itemsByTier = new Map<string, Item[]>();
