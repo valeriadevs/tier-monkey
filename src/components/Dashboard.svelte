@@ -3,6 +3,7 @@
   import { dashboardStore, formatRelativeTime } from '../lib/dashboard.svelte';
   import { listStore } from '../lib/list.svelte';
   import { TEMPLATES } from '../lib/templates';
+  import ConfirmDialog from './ConfirmDialog.svelte';
 
   let {
     onopeneditor,
@@ -16,6 +17,8 @@
   let editingId = $state<string | null>(null);
   let editValue = $state('');
   let editInputEl: HTMLInputElement | undefined = $state();
+  let confirmDeleteId = $state<string | null>(null);
+  let confirmDeleteTitle = $state('');
 
   $effect(() => {
     if (!dashboardStore.loaded) {
@@ -50,8 +53,21 @@
   async function handleDelete(id: string, title: string, e: Event) {
     e.stopPropagation();
     if (editingId === id) cancelRename();
-    if (!confirm(`Delete "${title}"? This cannot be undone.`)) return;
+    confirmDeleteId = id;
+    confirmDeleteTitle = title;
+  }
+
+  async function confirmDeleteList() {
+    if (!confirmDeleteId) return;
+    const id = confirmDeleteId;
+    confirmDeleteId = null;
+    confirmDeleteTitle = '';
     await dashboardStore.deleteList(id);
+  }
+
+  function cancelDeleteList() {
+    confirmDeleteId = null;
+    confirmDeleteTitle = '';
   }
 
   function startRename(id: string, currentTitle: string) {
@@ -189,6 +205,17 @@
     >Browse all templates →</button>
   </section>
 </div>
+
+<ConfirmDialog
+  open={confirmDeleteId !== null}
+  title="Delete list"
+  message={`Delete "${confirmDeleteTitle}"? This cannot be undone.`}
+  confirmLabel="Delete"
+  cancelLabel="Keep list"
+  destructive
+  onconfirm={confirmDeleteList}
+  oncancel={cancelDeleteList}
+/>
 
 <style>
   .dashboard {

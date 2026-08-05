@@ -2,6 +2,10 @@
   import { X } from '@lucide/svelte';
   import type { Snippet } from 'svelte';
 
+  // Selector for elements eligible to receive keyboard focus inside the panel.
+  const FOCUSABLE_SELECTOR =
+    'button:not(:disabled), [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])';
+
   let {
     open,
     title,
@@ -18,12 +22,51 @@
     size?: 'sm' | 'md' | 'lg';
   } = $props();
 
+  let panelEl: HTMLDivElement | undefined = $state();
+  let triggerEl: HTMLElement | null = null;
+
+  // On open: remember what had focus (so we can restore it on close) and
+  // move focus into the modal. On close: hand focus back to the trigger.
+  $effect(() => {
+    if (open && panelEl) {
+      const active = document.activeElement;
+      triggerEl = active instanceof HTMLElement ? active : null;
+      const firstFocusable = panelEl.querySelector<HTMLElement>(FOCUSABLE_SELECTOR);
+      // Defer so any layout animation has settled.
+      queueMicrotask(() => firstFocusable?.focus());
+    } else if (!open && triggerEl) {
+      const el = triggerEl;
+      triggerEl = null;
+      queueMicrotask(() => el.focus());
+    }
+  });
+
   function onBackdropClick(e: MouseEvent) {
     if (e.target === e.currentTarget) onclose();
   }
 
   function onKeydown(e: KeyboardEvent) {
-    if (e.key === 'Escape') onclose();
+    if (!open) return;
+    if (e.key === 'Escape') {
+      onclose();
+      return;
+    }
+    if (e.key !== 'Tab' || !panelEl) return;
+    const focusables = panelEl.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR);
+    if (focusables.length === 0) {
+      e.preventDefault();
+      return;
+    }
+    const first = focusables[0];
+    const last = focusables[focusables.length - 1];
+    const active = document.activeElement;
+    if (e.shiftKey && active === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && active === last) {
+      e.preventDefault();
+      first.focus();
+    }
   }
 </script>
 
@@ -36,6 +79,7 @@
     role="presentation"
   >
     <div
+      bind:this={panelEl}
       class="modal-panel"
       class:sm={size === 'sm'}
       class:md={size === 'md'}
@@ -46,13 +90,13 @@
     >
       <div class="modal-header">
         <h2 class="modal-title">{title}</h2>
-<button
-        type="button"
-        class="modal-close"
-        onclick={onclose}
-        aria-label="Close"
-        title="Close"
-      ><X size={18} aria-hidden="true" /></button>
+        <button
+          type="button"
+          class="modal-close"
+          onclick={onclose}
+          aria-label="Close"
+          title="Close"
+        ><X size={18} aria-hidden="true" /></button>
       </div>
       <div class="modal-body">
         {#if children}{@render children()}{/if}

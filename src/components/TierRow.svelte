@@ -6,6 +6,7 @@
   import { listStore } from '../lib/list.svelte';
   import ImageCard from './ImageCard.svelte';
   import ColorPicker from './ColorPicker.svelte';
+  import ConfirmDialog from './ConfirmDialog.svelte';
 
   let {
     tier,
@@ -30,6 +31,7 @@
   let colorDotEl: HTMLButtonElement | undefined = $state();
   let menuOpen = $state(false);
   let menuButtonEl: HTMLButtonElement | undefined = $state();
+  let confirmDeleteOpen = $state(false);
 
   $effect(() => {
     localItems = items;
@@ -78,15 +80,25 @@
   }
 
   function deleteThisTier() {
+    menuOpen = false;
+    confirmDeleteOpen = true;
+  }
+
+  function confirmDelete() {
+    listStore.deleteTier(tier.id);
+    confirmDeleteOpen = false;
+  }
+
+  function cancelDelete() {
+    confirmDeleteOpen = false;
+  }
+
+  const deleteConfirmMessage = $derived.by(() => {
     const count = listStore.tierItemCount(tier.id);
-    const msg = count > 0
+    return count > 0
       ? `Delete this tier? ${count} item${count === 1 ? '' : 's'} will return to the tray.`
       : 'Delete this tier?';
-    if (confirm(msg)) {
-      listStore.deleteTier(tier.id);
-    }
-    menuOpen = false;
-  }
+  });
 </script>
 
 <svelte:window onclick={(e) => {
@@ -189,6 +201,17 @@
   </div>
 </div>
 
+<ConfirmDialog
+  open={confirmDeleteOpen}
+  title="Delete tier"
+  message={deleteConfirmMessage}
+  confirmLabel="Delete"
+  cancelLabel="Keep tier"
+  destructive
+  onconfirm={confirmDelete}
+  oncancel={cancelDelete}
+/>
+
 <style>
   .tier-row {
     display: flex;
@@ -272,7 +295,9 @@
                 transform var(--duration-fast) var(--ease-standard);
   }
 
-  .tier-row:hover .color-dot {
+  .tier-row:hover .color-dot,
+  .tier-row:focus-within .color-dot,
+  .color-dot:focus-visible {
     opacity: 1;
   }
 
@@ -343,7 +368,9 @@
                 background-color var(--duration-fast) var(--ease-standard);
   }
 
-  .tier-row:hover .icon-btn {
+  .tier-row:hover .icon-btn,
+  .tier-row:focus-within .icon-btn,
+  .icon-btn:focus-visible {
     opacity: 1;
   }
 
