@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { Maximize2, X } from '@lucide/svelte';
   import type { DisplaySize, Item } from '../lib/types';
   import { DISPLAY_SIZE_PX } from '../lib/types';
 
@@ -64,7 +65,7 @@
       aria-label="Remove image"
       title="Remove"
       onclick={remove}
-    >×</button>
+    ><X size={14} strokeWidth={2.5} aria-hidden="true" /></button>
   {/if}
   {#if onresize}
     <button
@@ -73,7 +74,7 @@
       aria-label="Resize image"
       title="Resize"
       onclick={togglePopover}
-    >⤢</button>
+    ><Maximize2 size={13} aria-hidden="true" /></button>
   {/if}
   {#if popoverOpen}
     <div class="resize-sheet" role="menu">

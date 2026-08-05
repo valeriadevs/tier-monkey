@@ -10,16 +10,17 @@
     "check": "svelte-check --tsconfig ./tsconfig.json"
   },
   "dependencies": {
-    "svelte-dnd-action": "^0.9.0",
-    "dexie": "^4.0.0"
+    "@lucide/svelte": "^1.28.0",
+    "dexie": "^4.0.0",
+    "svelte-dnd-action": "^0.9.0"
   },
   "devDependencies": {
-    "svelte": "^5.0.0",
-    "vite": "^6.0.0",
     "@sveltejs/vite-plugin-svelte": "^5.0.0",
-    "typescript": "^5.5.0",
+    "@tsconfig/svelte": "^5.0.0",
+    "svelte": "^5.0.0",
     "svelte-check": "^4.0.0",
     "tslib": "^2.6.0",
-    "@tsconfig/svelte": "^5.0.0"
+    "typescript": "^5.5.0",
+    "vite": "^6.0.0"
   }
 }

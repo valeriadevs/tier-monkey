@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { ArrowRight } from '@lucide/svelte';
   import Modal from './Modal.svelte';
   import { TEMPLATES, type Template } from '../lib/templates';
   import { listStore } from '../lib/list.svelte';
@@ -66,7 +67,7 @@
         {#if isLoading}
           <div class="template-loading">Creating…</div>
         {:else}
-          <div class="template-cta">Use template →</div>
+          <div class="template-cta">Use template <ArrowRight size={12} aria-hidden="true" /></div>
         {/if}
       </button>
     {/each}
@@ -174,6 +175,9 @@
     color: var(--color-secondary);
     margin-top: auto;
     padding-top: var(--space-2);
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
   }
 
   .template-loading {

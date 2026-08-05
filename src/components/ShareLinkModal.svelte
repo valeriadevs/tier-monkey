@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { Check } from '@lucide/svelte';
   import Modal from './Modal.svelte';
 
   let {
@@ -56,7 +57,7 @@
       class="btn-primary"
       onclick={copy}
     >
-      {copied ? 'Copied ✓' : 'Copy'}
+      {#if copied}<Check size={14} aria-hidden="true" /> Copied{:else}Copy{/if}
     </button>
   </div>
 
@@ -115,6 +116,9 @@
     border-radius: var(--radius-sm);
     font-weight: 600;
     font-size: 14px;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
     transition: background-color var(--duration-fast) var(--ease-standard);
   }
 
