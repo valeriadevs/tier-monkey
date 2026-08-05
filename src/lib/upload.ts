@@ -9,8 +9,10 @@ const SUPPORTED_MIME = new Set([
 ]);
 
 const MAX_INPUT_BYTES = 10 * 1024 * 1024;
-const MASTER_SIZE = 192;
-const THUMB_SIZE = 64;
+// Master blob is the source of truth for export rasterization. Spec mandates
+// ≤1024 so exported PNGs don't lose detail vs. the on-screen tile.
+const MASTER_SIZE = 1024;
+const THUMB_SIZE = 96;
 
 export type UploadError = {
   filename: string;

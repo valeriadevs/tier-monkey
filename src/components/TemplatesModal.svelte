@@ -1,6 +1,7 @@
 <script lang="ts">
   import { ArrowRight } from '@lucide/svelte';
   import Modal from './Modal.svelte';
+  import ConfirmDialog from './ConfirmDialog.svelte';
   import { TEMPLATES, type Template } from '../lib/templates';
   import { listStore } from '../lib/list.svelte';
 
@@ -16,6 +17,29 @@
 
   let applying = $state<string | null>(null);
   let error = $state<string | null>(null);
+  let pendingTemplate = $state<Template | null>(null);
+
+  // If the user has any work in the current list, applying a template wipes
+  // it (createFromTemplate calls createNewList, which resets tiers/items).
+  // Require an explicit confirm so this isn't a footgun.
+  function requestApplyTemplate(template: Template) {
+    const hasWork = listStore.items.length > 0 || listStore.tiers.length > 0;
+    if (hasWork) {
+      pendingTemplate = template;
+    } else {
+      void applyTemplate(template);
+    }
+  }
+
+  function confirmPending() {
+    const t = pendingTemplate;
+    pendingTemplate = null;
+    if (t) void applyTemplate(t);
+  }
+
+  function cancelPending() {
+    pendingTemplate = null;
+  }
 
   async function applyTemplate(template: Template) {
     if (applying) return;
@@ -52,7 +76,7 @@
         class="template-card"
         class:loading={isLoading}
         disabled={!!applying}
-        onclick={() => applyTemplate(template)}
+        onclick={() => requestApplyTemplate(template)}
       >
         <div class="template-header">
           <span class="template-emoji">{template.emoji}</span>
@@ -73,6 +97,17 @@
     {/each}
   </div>
 </Modal>
+
+<ConfirmDialog
+  open={pendingTemplate !== null}
+  title="Replace current list?"
+  message={`Applying this template will replace your current tiers and items with ${pendingTemplate?.name ?? 'the template'}. This cannot be undone — undo will only restore the items in the new template.`}
+  confirmLabel="Replace"
+  cancelLabel="Keep current"
+  destructive
+  onconfirm={confirmPending}
+  oncancel={cancelPending}
+/>
 
 <style>
   .modal-intro {

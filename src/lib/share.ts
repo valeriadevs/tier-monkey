@@ -2,6 +2,12 @@ import type { DisplaySize } from './types';
 
 const SHARE_VERSION = 1 as const;
 
+// Hard upper bound on the encoded payload size we'll accept. Browsers
+// truncate URLs around 32–80 KB; a 2 MB ceiling stops us from feeding
+// absurdly large or zip-bomb payloads into atob + DecompressionStream
+// and also keeps the produced share URL honest about what's shareable.
+const MAX_SHARE_BYTES = 2 * 1024 * 1024;
+
 export interface ShareSnapshot {
   v: 1;
   title: string;
@@ -20,6 +26,11 @@ export async function encodeShare(snapshot: ShareSnapshot): Promise<string> {
 }
 
 export async function decodeShare(payload: string): Promise<ShareSnapshot> {
+  if (payload.length > MAX_SHARE_BYTES) {
+    throw new Error(
+      `Share link too large (${(payload.length / 1024 / 1024).toFixed(1)} MB > 2 MB limit)`
+    );
+  }
   const padded = payload.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - (payload.length % 4)) % 4);
   const binary = atob(padded);
   const bytes = new Uint8Array(binary.length);
