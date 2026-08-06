@@ -149,7 +149,20 @@
     };
   });
 
-  function handleResult(result: UploadResult) {
+  // Buffer results by file index so the user sees them in the picker order,
+  // not the race-order the bounded uploader produces.
+  let pendingResults: UploadResult[] = [];
+  let nextResultCursor = 0;
+
+  function handleResult(index: number, result: UploadResult) {
+    pendingResults[index] = result;
+    while (nextResultCursor < pendingResults.length && pendingResults[nextResultCursor]) {
+      applyUploadResult(pendingResults[nextResultCursor]);
+      nextResultCursor++;
+    }
+  }
+
+  function applyUploadResult(result: UploadResult) {
     if (result.image) {
       void listStore.addItemFromUpload(result.image);
     } else if (result.error) {
@@ -163,7 +176,9 @@
 
   function onFileInputChange(e: Event) {
     const input = e.target as HTMLInputElement;
-    if (!input.files) return;
+    if (!input.files || input.files.length === 0) return;
+    pendingResults = new Array(input.files.length);
+    nextResultCursor = 0;
     void uploadFiles(input.files, handleResult);
     input.value = '';
   }
@@ -202,7 +217,10 @@
       e.preventDefault();
       isWindowDragOver = false;
       if (view !== 'editor') return;
-      void uploadFiles(e.dataTransfer.files, handleResult);
+      const files = e.dataTransfer.files;
+      pendingResults = new Array(files.length);
+      nextResultCursor = 0;
+      void uploadFiles(files, handleResult);
     }
   }
 

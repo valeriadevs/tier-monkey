@@ -16,6 +16,7 @@ import type { ShareSnapshot } from './share';
 
 const PERSIST_DEBOUNCE_MS = 300;
 const HISTORY_LIMIT = 50;
+const EMPTY_ITEMS: Item[] = [];
 
 // Asset lifecycle note:
 // removeItem() and clearAll() no longer delete from db.assets - they keep
@@ -109,17 +110,38 @@ function createListStore() {
     if (redoStack.length > 0) redoStack.splice(0, redoStack.length);
   }
 
+  // Index items by their tierId so the read paths (called from many reactive
+  // contexts in TierRow/ItemTray) are O(1) instead of O(n) filters.
+  const byTier: Map<string | null, Item[]> = new Map();
+
+  function rebuildByTier() {
+    byTier.clear();
+    for (const item of items) {
+      const arr = byTier.get(item.tierId);
+      if (arr) arr.push(item);
+      else byTier.set(item.tierId, [item]);
+    }
+  }
+
   function itemsInTier(tierId: string): Item[] {
-    return items.filter((i) => i.tierId === tierId);
+    return byTier.get(tierId) ?? EMPTY_ITEMS;
   }
 
   function trayItems(): Item[] {
-    return items.filter((i) => i.tierId === null);
+    return byTier.get(null) ?? EMPTY_ITEMS;
   }
 
   function tierItemCount(tierId: string): number {
-    return items.reduce((n, i) => (i.tierId === tierId ? n + 1 : n), 0);
+    return byTier.get(tierId)?.length ?? 0;
   }
+
+  // Re-index whenever items change (length adds/removes and prop mutations).
+  $effect(() => {
+    // Touch the items array and every item so deep mutations to tierId
+    // also retrigger the rebuild.
+    for (const _ of items) void _?.tierId;
+    rebuildByTier();
+  });
 
   function addTier(atIndex?: number): Tier {
     pushHistory();
@@ -193,9 +215,13 @@ function createListStore() {
   }
 
   function applyPendingZones() {
+    const byId = new Map<string, Item>();
+    for (const item of items) byId.set(item.id, item);
+
+    // Apply tierId mutations from the dnd finalize in O(pending) time.
     for (const [tid, nzi] of pendingZones) {
       for (const incoming of nzi) {
-        const existing = items.find((i) => i.id === incoming.id);
+        const existing = byId.get(incoming.id);
         if (existing) existing.tierId = tid;
       }
     }
@@ -205,7 +231,6 @@ function createListStore() {
     for (const tid of pendingZones.keys()) tierIds.add(tid);
 
     const reordered: Item[] = [];
-    const byId = new Map(items.map((i) => [i.id, i]));
     for (const tid of tierIds) {
       const nzi = pendingZones.get(tid);
       if (nzi) {

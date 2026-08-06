@@ -80,20 +80,18 @@ async function rasterizeToBlob(source: ImageBitmap, targetSize: number): Promise
 
 export async function uploadFiles(
   files: FileList | File[],
-  onResult: (result: UploadResult) => void
+  onResult: (index: number, result: UploadResult) => void
 ): Promise<void> {
   const arr = Array.from(files);
-  await mapWithLimit(arr, MAX_CONCURRENT_UPLOADS, async (f) => {
-    onResult(await processFile(f));
+  await mapWithLimit(arr, MAX_CONCURRENT_UPLOADS, async (f, i) => {
+    onResult(i, await processFile(f));
   });
 }
-
-const MAX_CONCURRENT_UPLOADS = 3;
 
 async function mapWithLimit<T, R>(
   items: T[],
   limit: number,
-  fn: (item: T) => Promise<R>
+  fn: (item: T, index: number) => Promise<R>
 ): Promise<R[]> {
   const results: R[] = new Array(items.length);
   let cursor = 0;
@@ -102,9 +100,11 @@ async function mapWithLimit<T, R>(
     while (true) {
       const idx = cursor++;
       if (idx >= items.length) return;
-      results[idx] = await fn(items[idx]);
+      results[idx] = await fn(items[idx], idx);
     }
   });
   await Promise.all(workers);
   return results;
 }
+
+const MAX_CONCURRENT_UPLOADS = 3;
