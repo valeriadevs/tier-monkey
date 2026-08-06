@@ -1,12 +1,10 @@
-@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
-
-/* Hint the browser to warm up the font connection before CSS parses. */
-@import url('https://fonts.gstatic.com');
+/* Fonts are loaded via <link rel="stylesheet"> in index.html so the
+   browser can warm up the connection before this CSS parses. */
 
 :root {
   color-scheme: light;
 
-  /* Tier preset palette — UI design system §2.2 (light variants) */
+  /* Tier preset palette — content colors, not chrome. */
   --tier-s: #FF6B6B;
   --tier-a: #FFA94D;
   --tier-b: #FFD43B;
@@ -15,46 +13,52 @@
   --tier-e: #9775FA;
   --tier-f: #F783AC;
 
-  /* Brand & semantic — UI design system §2.1 (light) */
-  --color-primary: #FFC224;
-  --color-primary-hover: #F5B301;
-  --color-primary-active: #E0A400;
-  --color-primary-subtle: #FFF3D1;
-  --color-on-primary: #2B2115;
+  /* ----------------------------------------------------------------
+     Light-mode brand palette (user spec):
+       Background: #FFFFFF    Surface: #FFFFFF
+       Text:       #111827    Primary:  #E8777A
+       Accent:     #E8777A    Border:   #DBDEE5
+     Secondary is a neutral slate so coral primary reads correctly.
+     ---------------------------------------------------------------- */
+  --color-primary: #E8777A;
+  --color-primary-hover: #D8606B;
+  --color-primary-active: #C44E58;
+  --color-primary-subtle: #FCE9EA;
+  --color-on-primary: #FFFFFF;
 
-  --color-secondary: #6D4AFF;
-  --color-secondary-hover: #5B3AE8;
-  --color-secondary-subtle: #EFEAFF;
+  --color-secondary: #6B7280;
+  --color-secondary-hover: #4B5563;
+  --color-secondary-subtle: #F3F4F6;
   --color-on-secondary: #FFFFFF;
 
-  --color-accent: #FF5C8A;
+  --color-accent: #E8777A;
 
   --color-neutral-0: #FFFFFF;
-  --color-neutral-50: #FAF7F2;
-  --color-neutral-100: #F3EEE7;
-  --color-neutral-200: #E7E0D5;
-  --color-neutral-300: #D4CAB8;
-  --color-neutral-400: #A89E8C;
-  --color-neutral-500: #7A7060;
-  --color-neutral-900: #241E17;
+  --color-neutral-50: #FAFBFC;
+  --color-neutral-100: #F5F6F8;
+  --color-neutral-200: #E5E7EB;
+  --color-neutral-300: #DBDEE5;
+  --color-neutral-400: #9CA3AF;
+  --color-neutral-500: #6B7280;
+  --color-neutral-900: #111827;
 
   --color-success-fill: #22B573;
   --color-warning-fill: #F6A609;
-  --color-error-fill: #D92D20;
-  --color-error-hover: #B42318;
-  --color-error-subtle: #FDE8E8;
+  --color-error-fill: #DC2626;
+  --color-error-hover: #B91C1C;
+  --color-error-subtle: #FEE2E2;
 
-  --surface-canvas: var(--color-neutral-50);
-  --surface-panel: var(--color-neutral-0);
-  --surface-sunken: var(--color-neutral-100);
-  --surface-overlay: rgba(36, 30, 23, 0.5);
+  --surface-canvas: #FFFFFF;
+  --surface-panel: #FFFFFF;
+  --surface-sunken: #F5F6F8;
+  --surface-overlay: rgba(17, 24, 39, 0.5);
 
-  --on-surface-primary: var(--color-neutral-900);
-  --on-surface-secondary: #5A5145;
-  --on-surface-disabled: #B4AA99;
+  --on-surface-primary: #111827;
+  --on-surface-secondary: #4B5563;
+  --on-surface-disabled: #9CA3AF;
 
-  --border-default: var(--color-neutral-200);
-  --border-strong: var(--color-neutral-300);
+  --border-default: #DBDEE5;
+  --border-strong: #C2C7CF;
 
   /* Sizing — UI design system §2.4–2.5 */
   --space-1: 4px;
@@ -72,15 +76,18 @@
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 16px;
-  --radius-full: 999px;
+  --radius-full: 9999px;
 
-  --shadow-sticker: 3px 3px 0 #241E17;
-  --shadow-sticker-hover: 4px 4px 0 #241E17;
-  --shadow-sticker-active: 1px 1px 0 #241E17;
-  --elevation-1: 0 1px 2px rgba(36, 30, 23, 0.08);
-  --elevation-2: 0 4px 12px rgba(36, 30, 23, 0.12);
-  --elevation-3: 0 12px 32px rgba(36, 30, 23, 0.18);
-  --elevation-drag: 0 8px 24px rgba(36, 30, 23, 0.22);
+  /* Sticker-shadow stays as a brand-distinctive accent: a coral
+     drop-shadow matches the primary so the chunky-shadow buttons feel
+     of-a-piece with the rest of the chrome. */
+  --shadow-sticker: 3px 3px 0 #C44E58;
+  --shadow-sticker-hover: 4px 4px 0 #C44E58;
+  --shadow-sticker-active: 1px 1px 0 #C44E58;
+  --elevation-1: 0 1px 2px rgba(17, 24, 39, 0.06);
+  --elevation-2: 0 4px 12px rgba(17, 24, 39, 0.08);
+  --elevation-3: 0 12px 32px rgba(17, 24, 39, 0.12);
+  --elevation-drag: 0 8px 24px rgba(17, 24, 39, 0.18);
 
   /* Motion — UI design system §2.7 */
   --duration-instant: 80ms;
@@ -91,9 +98,9 @@
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
   --ease-in: cubic-bezier(0.4, 0, 1, 1);
 
-  /* Type — UI design system §2.3 */
-  --font-display: 'Fredoka', system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --font-ui: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  /* Type — UI design system §2.3 (per user spec) */
+  --font-display: 'Urbanist', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-ui: 'Open Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, 'Cascadia Code', monospace;
 
   /* Type scale — composite tokens so components stop hardcoding font-size + line-height */
@@ -110,8 +117,8 @@
   --leading-snug: 1.35;
   --leading-normal: 1.5;
 
-  /* Canvas pattern color — light mode uses warm ink at low opacity */
-  --canvas-dot: rgba(36, 30, 23, 0.05);
+  /* Canvas pattern color */
+  --canvas-dot: rgba(17, 24, 39, 0.04);
 
   /* Ink-tone transparent utilities — follow dark mode via color-mix on on-surface-primary */
   --ink-04: color-mix(in srgb, var(--on-surface-primary) 4%, transparent);
@@ -123,16 +130,16 @@
   /* Tier pill (used by Templates/Share modals + share preview) */
   --tier-pill-radius: var(--radius-xs);
   --tier-pill-font: var(--font-display);
-  --tier-pill-weight: 600;
+  --tier-pill-weight: 700;
   --tier-pill-size: 11px;
   --tier-pill-padding-y: 3px;
   --tier-pill-padding-x: 8px;
-  --tier-pill-color: var(--color-on-primary);
+  --tier-pill-color: #FFFFFF;
   --tier-pill-min-width: 28px;
 
   /* Toast (theme-stable — both light and dark toasts get a dark surface
      and light ink so notifications stay readable regardless of mode). */
-  --surface-toast: #241E17;
+  --surface-toast: #111827;
   --ink-on-toast: #FFFFFF;
   --ink-on-toast-soft: rgba(255, 255, 255, 0.7);
 }
