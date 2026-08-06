@@ -13,13 +13,27 @@ const TITLE_GAP = 20;
 const MIN_CONTENT_W = 560;
 const ROW_HEIGHT = 104;
 const RADIUS = 10;
-const BG = '#FFFFFF';
 const PANEL = '#FAF7F2';
 const ITEM_BORDER = '#E7E0D5';
-const INK = '#241E17';
 const PLACEHOLDER = '#E7E0D5';
 
 const FONT_DISPLAY = '"Fredoka", system-ui, -apple-system, "Segoe UI", sans-serif';
+
+function resolveCssVar(name: string, fallback: string): string {
+  if (typeof document === 'undefined') return fallback;
+  const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  return v || fallback;
+}
+
+function resolveThemePalette(): { bg: string; ink: string } {
+  // The canvas needs a sane pair of bg + ink. Pull --color-neutral-50/-900
+  // directly: they're alternates that always contrast in the current theme.
+  // Light: bg=#FAF7F2 ink=#241E17; Dark: bg=#1C1813 ink=#F5F0E8.
+  return {
+    bg: resolveCssVar('--color-neutral-50', '#FFFFFF'),
+    ink: resolveCssVar('--color-neutral-900', '#241E17')
+  };
+}
 
 export type ExportInput = {
   title: string;
@@ -103,6 +117,8 @@ export async function exportListToBlob(
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('Failed to acquire 2D context');
     ctx.scale(DPR, DPR);
+
+    const { bg: BG, ink: INK } = resolveThemePalette();
 
     ctx.fillStyle = BG;
     ctx.fillRect(0, 0, canvasWidth, canvasHeight);

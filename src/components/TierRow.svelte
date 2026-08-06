@@ -551,4 +551,13 @@
       right: 4px;
     }
   }
+
+  /* Touch devices (no hover): always expose the kebab + color-dot so users
+     can reach rename / color / delete without a screen reader. */
+  @media (hover: none) {
+    .icon-btn,
+    .color-dot {
+      opacity: 1;
+    }
+  }
 </style>

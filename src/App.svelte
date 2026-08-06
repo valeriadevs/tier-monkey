@@ -322,10 +322,18 @@
         tiers: listStore.tiers,
         items: listStore.items
       });
-      await copyBlobToClipboard(blob);
-      showToast('Image copied to clipboard');
+      try {
+        await copyBlobToClipboard(blob);
+        showToast('Image copied to clipboard');
+      } catch {
+        // Clipboard API denied / unavailable — fall back to a download so the
+        // user still gets their export instead of losing it to a permission.
+        const filename = `${sanitizeFilename(listStore.currentTitle)}.png`;
+        downloadBlob(blob, filename);
+        showToast(`Clipboard blocked — downloaded ${filename} instead`, 'info');
+      }
     } catch (e) {
-      showToast(`Copy failed: ${(e as Error).message}`, 'error');
+      showToast(`Export failed: ${(e as Error).message}`, 'error');
     } finally {
       isExporting = false;
     }
@@ -409,8 +417,19 @@
 
   // Centralized keyboard handler for Escape-to-close on any open menu —
   // keeps the handlers above as fallback for menu-embedded arrow keys.
+  // Bails out when a modal is open so the modal's own Escape handler can run
+  // without us also closing a stray menu in the same keystroke.
   function onGlobalKeydown(e: KeyboardEvent) {
     if (e.key !== 'Escape') return;
+    if (
+      templatesModalOpen ||
+      shareImportSnapshot ||
+      confirmListDeleteOpen ||
+      renameModalOpen ||
+      shareLinkUrl !== null
+    ) {
+      return;
+    }
     if (exportMenuOpen) { closeExportMenu(); e.preventDefault(); return; }
     if (listMenuOpen) { closeListMenu(); e.preventDefault(); return; }
   }
