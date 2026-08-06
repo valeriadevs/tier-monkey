@@ -670,6 +670,12 @@ function createListStore() {
     saveStatus = 'saving';
     lastSaveError = null;
 
+    // IndexedDB's `put` uses the structured-clone algorithm, which can't
+    // serialize Svelte 5's $state proxies. $state.snapshot() returns a
+    // plain-object deep clone that IDBObjectStore.put accepts.
+    const tiersPlain: Tier[] = $state.snapshot(tiers);
+    const itemsPlain: Item[] = $state.snapshot(items);
+
     // Snapshot all data synchronously so we can race-detect in the transaction
     // and bail before re-PUTing a deleted list.
     const listRecord: ListRecord = {
@@ -678,12 +684,12 @@ function createListStore() {
       createdAt: now,
       updatedAt: now,
       schemaVersion: CURRENT_SCHEMA_VERSION,
-      tiers: [...tiers],
+      tiers: tiersPlain,
       paletteIndex
     };
 
     const groups = new Map<string | null, Item[]>();
-    for (const item of items) {
+    for (const item of itemsPlain) {
       const arr = groups.get(item.tierId) ?? [];
       arr.push(item);
       groups.set(item.tierId, arr);
