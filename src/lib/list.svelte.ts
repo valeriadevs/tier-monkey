@@ -62,11 +62,25 @@ function createListStore() {
   const pendingZones = new Map<string | null, Item[]>();
   let zonesDirty = false;
 
+  // 'saved'   — no pending changes since last successful persist
+  // 'dirty'   — mutations since last successful persist
+  // 'saving'  — a persist is currently in flight
+  let saveStatus = $state<'saved' | 'dirty' | 'saving'>('saved');
+  let lastSavedAt = $state(0);
+  let lastSaveError = $state<string | null>(null);
+
+  function markDirty() {
+    if (!currentListId) return;
+    if (saveStatus !== 'saving') saveStatus = 'dirty';
+    lastSaveError = null;
+  }
+
   function pushHistory() {
     const evicted = undoStack.length >= HISTORY_LIMIT ? undoStack.shift() : null;
     undoStack.push(snapshotNow(tiers, items, paletteIndex, currentTitle));
     if (redoStack.length > 0) redoStack.splice(0, redoStack.length);
     if (evicted) evictAssetUrls(evicted);
+    markDirty();
   }
 
   function evictAssetUrls(snap: Snapshot) {
@@ -137,11 +151,17 @@ function createListStore() {
   }
 
   // Re-index whenever items change (length adds/removes and prop mutations).
-  $effect(() => {
-    // Touch the items array and every item so deep mutations to tierId
-    // also retrigger the rebuild.
-    for (const _ of items) void _?.tierId;
-    rebuildByTier();
+  // $effect.root() hosts an effect at module scope (Svelte 5 forbids plain
+  // $effect outside a component lifecycle). The root is intentionally
+  // retained for the lifetime of the listStore singleton — tearing it down
+  // on unload would leave byTier empty on the next loadList().
+  $effect.root(() => {
+    $effect(() => {
+      // Touch the items array and every item so deep mutations to tierId
+      // also retrigger the rebuild.
+      for (const _ of items) void _?.tierId;
+      rebuildByTier();
+    });
   });
 
   function addTier(atIndex?: number): Tier {
@@ -206,6 +226,9 @@ function createListStore() {
     pendingZones.set(tierId, newZoneItems);
     if (zonesDirty) return;
     zonesDirty = true;
+    // Mark dirty synchronously so the save indicator reflects the drag
+    // immediately, even though the actual pushHistory() runs in a microtask.
+    markDirty();
     queueMicrotask(() => {
       zonesDirty = false;
       pushHistory();
@@ -482,8 +505,14 @@ function createListStore() {
     currentListId = null;
     currentTitle = '';
     isLoaded = false;
+    saveStatus = 'saved';
+    lastSavedAt = 0;
+    lastSaveError = null;
     resetHistory();
     clearAllCachedUrls();
+    // NOTE: byTierCleanup() is intentionally NOT called. The byTier effect
+    // owns the module-singleton listStore for the app session — tearing it
+    // down per-list would leave byTier empty on the next loadList().
   }
 
   async function createNewList(title?: string): Promise<string> {
@@ -506,6 +535,9 @@ function createListStore() {
     currentListId = id;
     currentTitle = record.title;
     isLoaded = true;
+    saveStatus = 'saved';
+    lastSavedAt = record.updatedAt;
+    lastSaveError = null;
     resetHistory();
     announcer.say(`Created new list ${record.title}`);
     return id;
@@ -555,6 +587,9 @@ function createListStore() {
     currentListId = id;
     currentTitle = record.title;
     isLoaded = true;
+    saveStatus = 'saved';
+    lastSavedAt = record.updatedAt;
+    lastSaveError = null;
     resetHistory();
     return true;
   }
@@ -632,6 +667,8 @@ function createListStore() {
     if (!currentListId) return;
     const id = currentListId;
     const now = Date.now();
+    saveStatus = 'saving';
+    lastSaveError = null;
 
     // Snapshot all data synchronously so we can race-detect in the transaction
     // and bail before re-PUTing a deleted list.
@@ -668,28 +705,50 @@ function createListStore() {
       });
     }
 
-    await db.transaction('rw', db.lists, db.items, async () => {
-      // Bail if the user deleted or switched lists during the debounce delay —
-      // otherwise we'd resurrect a ghost list by re-PUT-ing the old record.
-      if (currentListId !== id) return;
+    try {
+      await db.transaction('rw', db.lists, db.items, async () => {
+        // Bail if the user deleted or switched lists during the debounce delay —
+        // otherwise we'd resurrect a ghost list by re-PUT-ing the old record.
+        if (currentListId !== id) return;
 
-      // Lookup createdAt inside the transaction so we can't read a row that
-      // was just deleted.
-      const existing = await db.lists.get(id);
-      if (existing) listRecord.createdAt = existing.createdAt;
+        // Lookup createdAt inside the transaction so we can't read a row that
+        // was just deleted.
+        const existing = await db.lists.get(id);
+        if (existing) listRecord.createdAt = existing.createdAt;
 
-      await db.lists.put(listRecord);
-      await db.items.where('listId').equals(id).delete();
-      if (itemRecords.length > 0) {
-        await db.items.bulkPut(itemRecords);
+        await db.lists.put(listRecord);
+        await db.items.where('listId').equals(id).delete();
+        if (itemRecords.length > 0) {
+          await db.items.bulkPut(itemRecords);
+        }
+      });
+      // Only mark "saved" if we actually persisted this list (not bailed).
+      if (currentListId === id) {
+        saveStatus = 'saved';
+        lastSavedAt = Date.now();
       }
-    });
+    } catch (e) {
+      if (currentListId === id) {
+        saveStatus = 'dirty';
+        lastSaveError = (e as Error).message ?? 'Save failed';
+      }
+    }
   }
 
   async function flushPendingSave(): Promise<void> {
     if (saveTimer) {
       clearTimeout(saveTimer);
       saveTimer = null;
+      await persistCurrentList();
+    }
+  }
+
+  /** Force an immediate save regardless of debounce. Safe to spam. */
+  async function forceSave(): Promise<void> {
+    await flushPendingSave();
+    if (saveStatus === 'dirty') {
+      // A mutation landed during/right after the flush — run once more so
+      // the user sees "saved" and the on-disk state is current.
       await persistCurrentList();
     }
   }
@@ -719,6 +778,15 @@ function createListStore() {
     get canRedo() {
       return redoStack.length > 0;
     },
+    get saveStatus() {
+      return saveStatus;
+    },
+    get lastSavedAt() {
+      return lastSavedAt;
+    },
+    get lastSaveError() {
+      return lastSaveError;
+    },
     itemsInTier,
     trayItems,
     tierItemCount,
@@ -746,7 +814,8 @@ function createListStore() {
     deleteCurrentList,
     renameList,
     duplicateList,
-    flushPendingSave
+    flushPendingSave,
+    forceSave
   };
 }
 

@@ -641,6 +641,29 @@
       title="Redo (Ctrl+Shift+Z)"
       aria-label="Redo"
     ><Redo2 size={18} aria-hidden="true" /></button>
+    {#if listStore.saveStatus === 'saving'}
+      <span class="save-pill saving" aria-live="polite">
+        <span class="save-spin"><Loader2 size={14} aria-hidden="true" /></span> Saving…
+      </span>
+    {:else if listStore.saveStatus === 'dirty'}
+      <button
+        type="button"
+        class="btn-secondary save-btn save-dirty"
+        onclick={() => listStore.forceSave()}
+        title="Click to save now"
+      >Save</button>
+    {:else if listStore.lastSaveError}
+      <button
+        type="button"
+        class="btn-secondary save-btn save-error"
+        onclick={() => listStore.forceSave()}
+        title={listStore.lastSaveError}
+      >Save failed — retry</button>
+    {:else}
+      <span class="save-pill" aria-live="polite" title={`Saved ${listStore.lastSavedAt ? new Date(listStore.lastSavedAt).toLocaleTimeString() : ''}`}>
+        <Check size={14} aria-hidden="true" /> Saved
+      </span>
+    {/if}
     <button class="btn-secondary" onclick={pickFiles}><Upload size={16} aria-hidden="true" /> Upload</button>
     <button class="btn-secondary" onclick={openTemplatesModal}><Palette size={16} aria-hidden="true" /> Templates</button>
     <button class="btn-secondary" onclick={handleShare} disabled={isSharing}>
@@ -986,6 +1009,44 @@
   .btn-icon:disabled {
     color: var(--on-surface-disabled);
     cursor: not-allowed;
+  }
+
+  /* Save status pill — sits in the toolbar between the undo/redo icons
+     and the action buttons. */
+  .save-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    padding: 0 var(--space-2);
+    height: 28px;
+    border-radius: var(--radius-full);
+    background: var(--surface-sunken);
+    color: var(--on-surface-secondary);
+    font-size: var(--text-caption);
+    font-weight: 600;
+  }
+
+  .save-pill.saving {
+    background: var(--color-secondary-subtle);
+    color: var(--color-secondary);
+  }
+
+  .save-btn.save-dirty {
+    border-color: var(--color-warning-fill, #F6A609);
+    color: var(--color-warning-fill, #F6A609);
+  }
+
+  .save-btn.save-error {
+    border-color: var(--color-error-fill);
+    color: var(--color-error-fill);
+  }
+
+  .save-spin {
+    animation: saveSpin 1s linear infinite;
+  }
+
+  @keyframes saveSpin {
+    to { transform: rotate(360deg); }
   }
 
   .canvas {
