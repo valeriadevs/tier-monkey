@@ -113,12 +113,6 @@
 />
 
 <style>
-  .modal-intro {
-    color: var(--on-surface-secondary);
-    font-size: 14px;
-    margin: 0 0 var(--space-4);
-  }
-
   .modal-error {
     background: var(--color-error-subtle);
     color: var(--color-error-fill);
@@ -196,17 +190,6 @@
     margin-top: var(--space-1);
   }
 
-  .tier-pill {
-    font-family: var(--font-display);
-    font-weight: 600;
-    font-size: 11px;
-    color: var(--color-on-primary);
-    padding: 3px 8px;
-    border-radius: var(--radius-xs);
-    min-width: 28px;
-    text-align: center;
-  }
-
   .template-cta {
     font-family: var(--font-mono);
     font-size: 12px;
@@ -224,6 +207,12 @@
     color: var(--color-secondary);
     margin-top: auto;
     padding-top: var(--space-2);
+  }
+
+  @media (max-width: 900px) {
+    .template-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
   }
 
   @media (max-width: 640px) {

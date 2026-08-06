@@ -238,26 +238,13 @@
     margin-bottom: var(--space-2);
   }
 
-  .url-input {
-    flex: 1;
-    min-width: 0;
+  :global(.url-input) {
     height: 32px;
-    padding: 0 var(--space-2);
     background: var(--surface-panel);
-    border: 1.5px solid var(--color-neutral-300);
-    border-radius: var(--radius-sm);
-    font-family: var(--font-mono);
-    font-size: 12px;
-    color: var(--on-surface-primary);
-    outline: none;
+    border-color: var(--color-neutral-300);
   }
 
-  .url-input:focus {
-    border-color: var(--color-secondary);
-    box-shadow: 0 0 0 3px var(--color-secondary-subtle);
-  }
-
-  .url-input:disabled {
+  :global(.url-input:disabled) {
     opacity: 0.6;
   }
 

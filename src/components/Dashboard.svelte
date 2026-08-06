@@ -202,7 +202,7 @@
                   aria-label={`Rename ${list.title}`}
                   title="Rename"
                   onclick={() => startRename(list.id, list.title)}
-                ><Pencil size={14} aria-hidden="true" /></button>
+                ><Pencil size={15} aria-hidden="true" /></button>
               {/if}
               <button
                 type="button"
@@ -210,7 +210,7 @@
                 aria-label={`Delete ${list.title}`}
                 title="Delete"
                 onclick={(e) => handleDelete(list.id, list.title, e)}
-              ><X size={16} aria-hidden="true" /></button>
+              ><X size={15} aria-hidden="true" /></button>
             </div>
           </li>
         {/each}
@@ -349,14 +349,14 @@
   .section-title {
     font-family: var(--font-display);
     font-weight: 600;
-    font-size: 20px;
+    font-size: var(--text-h3);
     color: var(--on-surface-primary);
     margin: 0;
   }
 
   .empty {
     color: var(--color-neutral-500);
-    font-size: 14px;
+    font-size: var(--text-body-sm);
     margin: 0;
     padding: var(--space-3) 0;
   }
@@ -443,7 +443,7 @@
   .draft-title {
     font-family: var(--font-display);
     font-weight: 600;
-    font-size: 18px;
+    font-size: var(--text-body-lg);
     color: var(--on-surface-primary);
     overflow: hidden;
     text-overflow: ellipsis;
@@ -458,7 +458,7 @@
     padding: var(--space-1) var(--space-2);
     font-family: var(--font-display);
     font-weight: 600;
-    font-size: 18px;
+    font-size: var(--text-body-lg);
     color: var(--on-surface-primary);
     outline: none;
     box-shadow: 0 0 0 3px var(--color-secondary-subtle);
@@ -468,7 +468,7 @@
     display: flex;
     justify-content: space-between;
     font-family: var(--font-mono);
-    font-size: 12px;
+    font-size: var(--text-caption);
     color: var(--color-neutral-500);
     margin-top: auto;
   }
@@ -551,7 +551,7 @@
   .template-preview-name {
     font-family: var(--font-display);
     font-weight: 600;
-    font-size: 14px;
+    font-size: var(--text-body-sm);
     color: var(--on-surface-primary);
   }
 
@@ -579,7 +579,7 @@
     }
 
     .hero-tagline {
-      font-size: 14px;
+      font-size: var(--text-body-sm);
     }
 
     .hero-logo {
@@ -614,7 +614,7 @@
     }
 
     .template-preview-name {
-      font-size: 12px;
+      font-size: var(--text-caption);
     }
   }
 

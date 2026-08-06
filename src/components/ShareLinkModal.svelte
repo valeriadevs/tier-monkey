@@ -81,22 +81,13 @@
 </Modal>
 
 <style>
-  .modal-intro {
-    color: var(--on-surface-secondary);
-    font-size: 14px;
-    margin: 0 0 var(--space-3);
-    line-height: 1.4;
-  }
-
   .url-row {
     display: flex;
     gap: var(--space-2);
     margin-bottom: var(--space-2);
   }
 
-  .url-input {
-    flex: 1;
-    min-width: 0;
+  :global(.url-input) {
     background: var(--surface-sunken);
     border: 1.5px solid var(--border-default);
     border-radius: var(--radius-sm);
@@ -105,9 +96,11 @@
     font-size: 12px;
     color: var(--on-surface-primary);
     outline: none;
+    flex: 1;
+    min-width: 0;
   }
 
-  .url-input:focus {
+  :global(.url-input:focus) {
     border-color: var(--color-secondary);
     box-shadow: 0 0 0 3px var(--color-secondary-subtle);
   }

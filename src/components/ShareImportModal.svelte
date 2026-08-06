@@ -44,7 +44,7 @@
       </div>
       <div class="preview-tiers">
         {#each snapshot.tiers as tier, i (i)}
-          <span class="preview-pill" style:background={tier.color}>{tier.label}</span>
+          <span class="tier-pill" style:background={tier.color}>{tier.label}</span>
         {/each}
       </div>
     </div>
@@ -69,13 +69,6 @@
 </Modal>
 
 <style>
-  .modal-intro {
-    color: var(--on-surface-secondary);
-    font-size: 14px;
-    margin: 0 0 var(--space-3);
-    line-height: 1.4;
-  }
-
   .preview {
     background: var(--surface-sunken);
     border: 1.5px solid var(--border-default);
@@ -113,17 +106,6 @@
     flex-wrap: wrap;
     gap: 4px;
     margin-top: var(--space-1);
-  }
-
-  .preview-pill {
-    font-family: var(--font-display);
-    font-weight: 600;
-    font-size: 11px;
-    color: var(--color-on-primary);
-    padding: 3px 8px;
-    border-radius: var(--radius-xs);
-    min-width: 28px;
-    text-align: center;
   }
 
   :global(.btn-primary) {
