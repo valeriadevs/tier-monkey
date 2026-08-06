@@ -23,6 +23,7 @@
   import { listStore } from './lib/list.svelte';
   import { themeStore } from './lib/theme.svelte';
   import { uploadFiles, type UploadResult } from './lib/upload';
+  import { popoverManager } from './lib/popovers.svelte';
   import { fade } from 'svelte/transition';
   import {
     copyBlobToClipboard,
@@ -554,6 +555,8 @@
   ondragenter={onWindowDragEnter}
   ondragover={onWindowDragOver}
   ondragleave={onWindowDragLeave}
+/>
+<svelte:document onclick={(e) => popoverManager.closeOutside(e.target as Node)} />
   ondrop={onWindowDrop}
 />
 

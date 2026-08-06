@@ -5,6 +5,7 @@
   import type { Item, Tier } from '../lib/types';
   import { DND_TYPE_ITEMS } from '../lib/types';
   import { listStore } from '../lib/list.svelte';
+  import { popoverManager } from '../lib/popovers.svelte';
   import ImageCard from './ImageCard.svelte';
   import ColorPicker from './ColorPicker.svelte';
   import ConfirmDialog from './ConfirmDialog.svelte';
@@ -29,7 +30,7 @@
   let renameValue = $state('');
   let renameInputEl: HTMLInputElement | undefined = $state();
   let colorPickerOpen = $state(false);
-  let colorDotEl: HTMLButtonElement | undefined = $state();
+  let pickerEl: HTMLDivElement | undefined = $state();
   let menuOpen = $state(false);
   let menuButtonEl: HTMLButtonElement | undefined = $state();
   let menuEl: HTMLDivElement | undefined = $state();
@@ -133,17 +134,23 @@
     confirmDeleteOpen = false;
   }
 
-  function handleOutsideClick(e: MouseEvent) {
-    if (!menuOpen && !colorPickerOpen) return;
-    if (colorPickerOpen && colorDotEl && !colorDotEl.contains(e.target as Node)) {
-      const target = e.target as HTMLElement;
-      if (!target.closest('.picker')) colorPickerOpen = false;
+  // Register the open menu / color picker with the global popover manager
+  // so a single document-level click closes any popover whose root doesn't
+  // contain the click target. Replaces the per-row `<svelte:window>`.
+  $effect(() => {
+    if (menuOpen && menuEl) {
+      return popoverManager.register(menuEl, () => {
+        menuOpen = false;
+        menuButtonEl?.focus();
+      });
     }
-    if (menuOpen && menuButtonEl && !menuButtonEl.contains(e.target as Node)) {
-      const target = e.target as HTMLElement;
-      if (!target.closest('.tier-menu')) menuOpen = false;
+  });
+
+  $effect(() => {
+    if (colorPickerOpen && pickerEl) {
+      return popoverManager.register(pickerEl, () => (colorPickerOpen = false));
     }
-  }
+  });
 
   const deleteConfirmMessage = $derived.by(() => {
     const count = listStore.tierItemCount(tier.id);
@@ -152,8 +159,6 @@
       : 'Delete this tier?';
   });
 </script>
-
-<svelte:window onclick={handleOutsideClick} />
 
 <div class="tier-row">
   <div class="tier-label" style:background={tier.color}>
@@ -180,14 +185,13 @@
       </button>
     {/if}
     <button
-      bind:this={colorDotEl}
       type="button"
       class="color-dot"
       onclick={() => (colorPickerOpen = !colorPickerOpen)}
       aria-label="Change tier color"
     ></button>
     {#if colorPickerOpen}
-      <div class="picker-anchor" transition:fade={{ duration: 120 }}>
+      <div class="picker-anchor" bind:this={pickerEl} transition:fade={{ duration: 120 }}>
         <ColorPicker
           value={tier.color}
           onchange={pickColor}

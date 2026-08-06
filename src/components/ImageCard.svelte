@@ -3,6 +3,7 @@
   import { Maximize2, X } from '@lucide/svelte';
   import type { DisplaySize, Item } from '../lib/types';
   import { DISPLAY_SIZE_PX } from '../lib/types';
+  import { popoverManager } from '../lib/popovers.svelte';
 
   let {
     item,
@@ -33,13 +34,17 @@
     popoverOpen = !popoverOpen;
   }
 
-  // Focus the first size option when the resize popover opens.
+  // Focus the first size option when the resize popover opens, and register
+  // with the popover manager so a click anywhere outside the sheet closes
+  // it. Replacing the per-card `<svelte:window onclick>` with this single
+  // document-level handler means an N-card tray no longer has N listeners.
   $effect(() => {
     if (popoverOpen && popoverEl) {
       queueMicrotask(() => {
         const first = popoverEl!.querySelector<HTMLElement>('.size-option');
         first?.focus();
       });
+      return popoverManager.register(popoverEl, () => (popoverOpen = false));
     }
   });
 
@@ -77,13 +82,6 @@
     onremove?.();
   }
 
-  function onWindowClick(e: MouseEvent) {
-    if (!popoverOpen || !cardEl) return;
-    if (!cardEl.contains(e.target as Node)) {
-      popoverOpen = false;
-    }
-  }
-
   // Keyboard entry: focus the card so screen readers and Tab users can reach
   // it. Enter/Space opens the resize sheet (which already has full keyboard
   // navigation from a previous batch). Escape blurs focus.
@@ -97,8 +95,6 @@
     popoverOpen = true;
   }
 </script>
-
-<svelte:window onclick={onWindowClick} />
 
 <div
   bind:this={cardEl}
