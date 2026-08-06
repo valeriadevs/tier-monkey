@@ -66,15 +66,14 @@
   let isExporting = $state(false);
   let isSharing = $state(false);
   let exportMenuOpen = $state(false);
+  let exportButtonEl: HTMLButtonElement | undefined = $state();
+  let exportMenuEl: HTMLDivElement | undefined = $state();
   let listMenuOpen = $state(false);
+  let listMenuButtonEl: HTMLButtonElement | undefined = $state();
+  let listMenuEl: HTMLDivElement | undefined = $state();
   let confirmListDeleteOpen = $state(false);
 
-  function openListMenu() {
-    listMenuOpen = !listMenuOpen;
-  }
-  function closeListMenu() {
-    listMenuOpen = false;
-  }
+
 
   async function handleRenameList() {
     closeListMenu();
@@ -309,6 +308,82 @@
 
   function closeExportMenu() {
     exportMenuOpen = false;
+    exportButtonEl?.focus();
+  }
+
+  $effect(() => {
+    if (exportMenuOpen && exportMenuEl) {
+      queueMicrotask(() => {
+        const first = exportMenuEl!.querySelector<HTMLElement>('.menu-item');
+        first?.focus();
+      });
+    }
+  });
+
+  function onExportMenuKeydown(e: KeyboardEvent) {
+    if (e.key === 'Escape') {
+      e.stopPropagation();
+      closeExportMenu();
+      return;
+    }
+    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp' && e.key !== 'Home' && e.key !== 'End') return;
+    const items = Array.from(exportMenuEl?.querySelectorAll<HTMLElement>('.menu-item') ?? []);
+    if (items.length === 0) return;
+    e.preventDefault();
+    const current = document.activeElement as HTMLElement | null;
+    const idx = current ? items.indexOf(current) : -1;
+    let next = idx;
+    if (e.key === 'ArrowDown') next = (idx + 1) % items.length;
+    else if (e.key === 'ArrowUp') next = (idx - 1 + items.length) % items.length;
+    else if (e.key === 'Home') next = 0;
+    else if (e.key === 'End') next = items.length - 1;
+    items[next]?.focus();
+  }
+
+  function toggleListMenu() {
+    listMenuOpen = !listMenuOpen;
+  }
+
+  function closeListMenu() {
+    listMenuOpen = false;
+    listMenuButtonEl?.focus();
+  }
+
+  $effect(() => {
+    if (listMenuOpen && listMenuEl) {
+      queueMicrotask(() => {
+        const first = listMenuEl!.querySelector<HTMLElement>('.menu-item');
+        first?.focus();
+      });
+    }
+  });
+
+  function onListMenuKeydown(e: KeyboardEvent) {
+    if (e.key === 'Escape') {
+      e.stopPropagation();
+      closeListMenu();
+      return;
+    }
+    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp' && e.key !== 'Home' && e.key !== 'End') return;
+    const items = Array.from(listMenuEl?.querySelectorAll<HTMLElement>('.menu-item') ?? []);
+    if (items.length === 0) return;
+    e.preventDefault();
+    const current = document.activeElement as HTMLElement | null;
+    const idx = current ? items.indexOf(current) : -1;
+    let next = idx;
+    if (e.key === 'ArrowDown') next = (idx + 1) % items.length;
+    else if (e.key === 'ArrowUp') next = (idx - 1 + items.length) % items.length;
+    else if (e.key === 'Home') next = 0;
+    else if (e.key === 'End') next = items.length - 1;
+    items[next]?.focus();
+  }
+
+  // Centralized keyboard handler for Escape-to-close on any open menu —
+  // keeps the handlers above as fallback for menu-embedded arrow keys.
+  function onGlobalKeydown(e: KeyboardEvent) {
+    if (e.key !== 'Escape') return;
+    if (exportMenuOpen) { closeExportMenu(); e.preventDefault(); return; }
+    if (listMenuOpen) { closeListMenu(); e.preventDefault(); return; }
   }
 
   async function resizeImageForShare(blob: Blob): Promise<Blob> {
@@ -453,7 +528,7 @@
 </script>
 
 <svelte:window
-  onkeydown={onKeydown}
+  onkeydown={(e) => { onGlobalKeydown(e); onKeydown(e); }}
   onhashchange={onHashChange}
   onpagehide={onPageHide}
   onvisibilitychange={onVisibilityChange}
@@ -506,15 +581,24 @@
     </button>
     <div class="list-menu-cluster">
       <button
+        bind:this={listMenuButtonEl}
         class="btn-icon"
-        onclick={openListMenu}
+        onclick={toggleListMenu}
         aria-label="List options"
         title="List options"
         aria-expanded={listMenuOpen}
         aria-haspopup="menu"
       ><Ellipsis size={18} aria-hidden="true" /></button>
       {#if listMenuOpen}
-        <div class="list-menu" role="menu" transition:fade={{ duration: 100 }}>
+        <div
+          bind:this={listMenuEl}
+          class="list-menu"
+          role="menu"
+          aria-label="List options"
+          tabindex="-1"
+          onkeydown={onListMenuKeydown}
+          transition:fade={{ duration: 100 }}
+        >
           <button class="menu-item" onclick={handleRenameList}><Pencil size={15} aria-hidden="true" /> Rename list</button>
           <button class="menu-item" onclick={duplicateThisList}><Copy size={15} aria-hidden="true" /> Duplicate list</button>
           <div class="menu-divider" aria-hidden="true"></div>
@@ -539,11 +623,26 @@
   </button>
   {#if view === 'editor'}
     <div class="export-cluster">
-      <button class="btn-primary" onclick={toggleExportMenu} disabled={isExporting} aria-expanded={exportMenuOpen} aria-haspopup="menu">
+      <button
+        bind:this={exportButtonEl}
+        class="btn-primary"
+        onclick={toggleExportMenu}
+        disabled={isExporting}
+        aria-expanded={exportMenuOpen}
+        aria-haspopup="menu"
+      >
         {#if isExporting}Exporting…{:else}<Download size={16} aria-hidden="true" /> Export <ChevronDown size={14} aria-hidden="true" />{/if}
       </button>
       {#if exportMenuOpen}
-        <div class="export-menu" role="menu" transition:fade={{ duration: 100 }}>
+        <div
+          bind:this={exportMenuEl}
+          class="export-menu"
+          role="menu"
+          aria-label="Export options"
+          tabindex="-1"
+          onkeydown={onExportMenuKeydown}
+          transition:fade={{ duration: 100 }}
+        >
           <button class="menu-item" onclick={() => handleExport('png')}><Download size={15} aria-hidden="true" /> Download PNG</button>
           <button class="menu-item" onclick={() => handleExport('jpeg')}><Download size={15} aria-hidden="true" /> Download JPEG</button>
           <div class="menu-divider" aria-hidden="true"></div>

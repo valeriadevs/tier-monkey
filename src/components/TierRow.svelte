@@ -32,6 +32,7 @@
   let colorDotEl: HTMLButtonElement | undefined = $state();
   let menuOpen = $state(false);
   let menuButtonEl: HTMLButtonElement | undefined = $state();
+  let menuEl: HTMLDivElement | undefined = $state();
   let confirmDeleteOpen = $state(false);
 
   $effect(() => {
@@ -44,6 +45,44 @@
       renameInputEl.select();
     }
   });
+
+  // Focus the first menu item when the kebab opens, and close on Escape.
+  $effect(() => {
+    if (menuOpen && menuEl) {
+      queueMicrotask(() => {
+        const first = menuEl!.querySelector<HTMLElement>('.menu-item');
+        first?.focus();
+      });
+    }
+  });
+
+  function onMenuKeydown(e: KeyboardEvent) {
+    if (e.key === 'Escape') {
+      e.stopPropagation();
+      menuOpen = false;
+      menuButtonEl?.focus();
+      return;
+    }
+    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp' && e.key !== 'Home' && e.key !== 'End') {
+      return;
+    }
+    const items = Array.from(menuEl?.querySelectorAll<HTMLElement>('.menu-item') ?? []);
+    if (items.length === 0) return;
+    e.preventDefault();
+    const current = document.activeElement as HTMLElement | null;
+    const idx = current ? items.indexOf(current) : -1;
+    let next = idx;
+    if (e.key === 'ArrowDown') next = (idx + 1) % items.length;
+    else if (e.key === 'ArrowUp') next = (idx - 1 + items.length) % items.length;
+    else if (e.key === 'Home') next = 0;
+    else if (e.key === 'End') next = items.length - 1;
+    items[next]?.focus();
+  }
+
+  function closeMenu() {
+    menuOpen = false;
+    menuButtonEl?.focus();
+  }
 
   function handleConsider(e: CustomEvent<{ items: Item[] }>) {
     localItems = e.detail.items;
@@ -191,19 +230,29 @@
       onclick={() => (menuOpen = !menuOpen)}
       aria-label="Tier options"
       title="Tier options"
+      aria-haspopup="menu"
+      aria-expanded={menuOpen}
     >
       <Ellipsis size={18} aria-hidden="true" />
     </button>
     {#if menuOpen}
-      <div class="tier-menu" role="menu" transition:fade={{ duration: 120 }}>
-        <button class="menu-item" onclick={() => { startRename(); menuOpen = false; }}><Pencil size={15} aria-hidden="true" /> Rename</button>
-        <button class="menu-item" onclick={() => { colorPickerOpen = true; menuOpen = false; }}><Palette size={15} aria-hidden="true" /> Change color</button>
-        <button class="menu-item" onclick={() => { listStore.moveTier(tier.id, -1); menuOpen = false; }}><ChevronUp size={15} aria-hidden="true" /> Move up</button>
-        <button class="menu-item" onclick={() => { listStore.moveTier(tier.id, 1); menuOpen = false; }}><ChevronDown size={15} aria-hidden="true" /> Move down</button>
-        <button class="menu-item" onclick={() => { onaddtierabove(); menuOpen = false; }}><ChevronUp size={15} aria-hidden="true" /> Add tier above</button>
-        <button class="menu-item" onclick={() => { onaddtierbelow(); menuOpen = false; }}><ChevronDown size={15} aria-hidden="true" /> Add tier below</button>
+      <div
+        bind:this={menuEl}
+        class="tier-menu"
+        role="menu"
+        aria-label="Tier options"
+        tabindex="-1"
+        onkeydown={onMenuKeydown}
+        transition:fade={{ duration: 120 }}
+      >
+        <button class="menu-item" role="menuitem" onclick={() => { startRename(); menuOpen = false; }}><Pencil size={15} aria-hidden="true" /> Rename</button>
+        <button class="menu-item" role="menuitem" onclick={() => { colorPickerOpen = true; menuOpen = false; }}><Palette size={15} aria-hidden="true" /> Change color</button>
+        <button class="menu-item" role="menuitem" onclick={() => { listStore.moveTier(tier.id, -1); menuOpen = false; }}><ChevronUp size={15} aria-hidden="true" /> Move up</button>
+        <button class="menu-item" role="menuitem" onclick={() => { listStore.moveTier(tier.id, 1); menuOpen = false; }}><ChevronDown size={15} aria-hidden="true" /> Move down</button>
+        <button class="menu-item" role="menuitem" onclick={() => { onaddtierabove(); menuOpen = false; }}><ChevronUp size={15} aria-hidden="true" /> Add tier above</button>
+        <button class="menu-item" role="menuitem" onclick={() => { onaddtierbelow(); menuOpen = false; }}><ChevronDown size={15} aria-hidden="true" /> Add tier below</button>
         <div class="menu-divider" aria-hidden="true"></div>
-        <button class="menu-item destructive" onclick={deleteThisTier}><Trash2 size={15} aria-hidden="true" /> Delete tier</button>
+        <button class="menu-item destructive" role="menuitem" onclick={deleteThisTier}><Trash2 size={15} aria-hidden="true" /> Delete tier</button>
       </div>
     {/if}
   </div>

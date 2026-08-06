@@ -20,6 +20,8 @@
 
   let popoverOpen = $state(false);
   let cardEl: HTMLDivElement | undefined = $state();
+  let resizeHandleEl: HTMLButtonElement | undefined = $state();
+  let popoverEl: HTMLDivElement | undefined = $state();
   let imageBroken = $state(false);
 
   const px = $derived(DISPLAY_SIZE_PX[item.displaySize]);
@@ -29,6 +31,39 @@
   function togglePopover(e: MouseEvent) {
     e.stopPropagation();
     popoverOpen = !popoverOpen;
+  }
+
+  // Focus the first size option when the resize popover opens.
+  $effect(() => {
+    if (popoverOpen && popoverEl) {
+      queueMicrotask(() => {
+        const first = popoverEl!.querySelector<HTMLElement>('.size-option');
+        first?.focus();
+      });
+    }
+  });
+
+  function onPopoverKeydown(e: KeyboardEvent) {
+    if (e.key === 'Escape') {
+      e.stopPropagation();
+      popoverOpen = false;
+      resizeHandleEl?.focus();
+      return;
+    }
+    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp' && e.key !== 'Home' && e.key !== 'End') {
+      return;
+    }
+    const opts = Array.from(popoverEl?.querySelectorAll<HTMLElement>('.size-option') ?? []);
+    if (opts.length === 0) return;
+    e.preventDefault();
+    const current = document.activeElement as HTMLElement | null;
+    const idx = current ? opts.indexOf(current) : -1;
+    let next = idx;
+    if (e.key === 'ArrowDown') next = (idx + 1) % opts.length;
+    else if (e.key === 'ArrowUp') next = (idx - 1 + opts.length) % opts.length;
+    else if (e.key === 'Home') next = 0;
+    else if (e.key === 'End') next = opts.length - 1;
+    opts[next]?.focus();
   }
 
   function pick(size: DisplaySize, e: MouseEvent) {
@@ -87,15 +122,26 @@
   {/if}
   {#if onresize}
     <button
+      bind:this={resizeHandleEl}
       type="button"
       class="resize-handle"
       aria-label="Resize image"
       title="Resize"
+      aria-haspopup="menu"
+      aria-expanded={popoverOpen}
       onclick={togglePopover}
     ><Maximize2 size={13} aria-hidden="true" /></button>
   {/if}
   {#if popoverOpen}
-    <div class="resize-sheet" role="menu" transition:fade={{ duration: 120 }}>
+    <div
+      bind:this={popoverEl}
+      class="resize-sheet"
+      role="menu"
+      aria-label="Resize image"
+      tabindex="-1"
+      onkeydown={onPopoverKeydown}
+      transition:fade={{ duration: 120 }}
+    >
       {#each sizes as s (s)}
         {@const spx = DISPLAY_SIZE_PX[s]}
         <button
