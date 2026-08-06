@@ -353,6 +353,7 @@ function createListStore() {
   async function importShareSnapshot(snap: ShareSnapshot): Promise<string> {
     await flushPendingSave();
     const id = await createNewList(snap.title);
+    const listIdAtStart = id;
     pushHistory();
     const newTiers: Tier[] = snap.tiers.map((t) => ({
       id: `t-${crypto.randomUUID().slice(0, 8)}`,
@@ -362,44 +363,66 @@ function createListStore() {
     tiers.splice(0, tiers.length, ...newTiers);
     paletteIndex = newTiers.length;
 
-    // Decode + process images in parallel (bounded); persist sequentially to
-    // avoid db.assets contention.
-    const processedEntries = await mapWithLimit(
-      snap.items,
-      3,
-      async (item) => {
-        const base64 = snap.images[item.imgIdx];
-        if (!base64) return null;
-        const binary = atob(base64);
-        const bytes = new Uint8Array(binary.length);
-        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-        const blob = new Blob([bytes], { type: 'image/webp' });
-        const processed = await processBlob(blob, 'Shared');
-        return { item, processed };
-      }
-    );
+    // Track every asset we save so we can orphan-clean on abort.
+    const savedAssetIds: string[] = [];
+    try {
+      // Decode + process images in parallel (bounded); persist sequentially to
+      // avoid db.assets contention.
+      const processedEntries = await mapWithLimit(
+        snap.items,
+        3,
+        async (item) => {
+          const base64 = snap.images[item.imgIdx];
+          if (!base64) return null;
+          const binary = atob(base64);
+          const bytes = new Uint8Array(binary.length);
+          for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+          const blob = new Blob([bytes], { type: 'image/webp' });
+          const processed = await processBlob(blob, 'Shared');
+          return { item, processed };
+        }
+      );
 
-    for (const entry of processedEntries) {
-      if (!entry) continue;
-      const { item, processed } = entry;
-      const asset = await saveAsset(processed.masterBlob, processed.thumbBlob);
-      const urls = await resolveAssetUrls(asset.id);
-      cacheAssetUrls(asset.id, urls);
-      const tierId = item.tierIdx === null ? null : newTiers[item.tierIdx]?.id ?? null;
-      items.push({
-        id: crypto.randomUUID(),
-        assetId: asset.id,
-        url: urls.url,
-        thumbUrl: urls.thumbUrl,
-        width: processed.width,
-        height: processed.height,
-        alt: processed.alt,
-        tierId,
-        displaySize: item.displaySize
-      });
+      for (const entry of processedEntries) {
+        if (!entry) continue;
+        // Race guard: if the user deleted or switched lists during the
+        // import, abort and roll back everything we saved so far.
+        if (currentListId !== listIdAtStart) {
+          throw new Error('List was deleted before import finished');
+        }
+        const { item, processed } = entry;
+        const asset = await saveAsset(processed.masterBlob, processed.thumbBlob);
+        savedAssetIds.push(asset.id);
+        const urls = await resolveAssetUrls(asset.id);
+        cacheAssetUrls(asset.id, urls);
+        const tierId = item.tierIdx === null ? null : newTiers[item.tierIdx]?.id ?? null;
+        items.push({
+          id: crypto.randomUUID(),
+          assetId: asset.id,
+          url: urls.url,
+          thumbUrl: urls.thumbUrl,
+          width: processed.width,
+          height: processed.height,
+          alt: processed.alt,
+          tierId,
+          displaySize: item.displaySize
+        });
+      }
+      schedulePersist();
+      return id;
+    } catch (e) {
+      // Roll back: drop the partly-imported list (cascade-deletes any items
+      // already pushed) and any assets we managed to save. Re-throw so the
+      // caller can surface a user-facing toast.
+      for (const aid of savedAssetIds) {
+        await deleteAsset(aid);
+      }
+      if (currentListId === listIdAtStart) {
+        await deleteListCascade(listIdAtStart);
+        unload();
+      }
+      throw e;
     }
-    schedulePersist();
-    return id;
   }
 
   function removeItem(id: string) {

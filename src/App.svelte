@@ -48,6 +48,7 @@
   import TemplatesModal from './components/TemplatesModal.svelte';
   import ShareImportModal from './components/ShareImportModal.svelte';
   import ConfirmDialog from './components/ConfirmDialog.svelte';
+  import RenameListModal from './components/RenameListModal.svelte';
   import ShareLinkModal from './components/ShareLinkModal.svelte';
 
   type View = 'dashboard' | 'editor';
@@ -73,13 +74,22 @@
   let listMenuButtonEl: HTMLButtonElement | undefined = $state();
   let listMenuEl: HTMLDivElement | undefined = $state();
   let confirmListDeleteOpen = $state(false);
+  let renameModalOpen = $state(false);
 
 
 
   async function handleRenameList() {
     closeListMenu();
-    const next = window.prompt('Rename list', listStore.currentTitle);
-    if (next !== null) listStore.renameCurrentList(next);
+    renameModalOpen = true;
+  }
+
+  async function acceptRenameList(next: string) {
+    const previous = listStore.currentTitle;
+    listStore.renameCurrentList(next);
+    renameModalOpen = false;
+    if (listStore.currentTitle !== previous) {
+      showToast(`Renamed to ${listStore.currentTitle}`);
+    }
   }
 
   function requestDeleteList() {
@@ -555,10 +565,9 @@
   ondragenter={onWindowDragEnter}
   ondragover={onWindowDragOver}
   ondragleave={onWindowDragLeave}
-/>
-<svelte:document onclick={(e) => popoverManager.closeOutside(e.target as Node)} />
   ondrop={onWindowDrop}
 />
+<svelte:document onclick={(e) => popoverManager.closeOutside(e.target as Node)} />
 
 <input
   bind:this={fileInputEl}
@@ -758,6 +767,13 @@
   onaccept={acceptShareImport}
   oncancel={cancelShareImport}
   importing={isImportingShare}
+/>
+
+<RenameListModal
+  open={renameModalOpen}
+  initialTitle={listStore.currentTitle}
+  onclose={() => (renameModalOpen = false)}
+  onconfirm={acceptRenameList}
 />
 
 <ConfirmDialog
@@ -1007,12 +1023,12 @@
     display: flex;
     align-items: center;
     gap: var(--space-2);
-    background: var(--color-neutral-900);
-    color: white;
+    background: var(--surface-toast);
+    color: var(--ink-on-toast);
     padding: var(--space-2) var(--space-3);
     border-radius: var(--radius-md);
     box-shadow: var(--elevation-2);
-    font-size: 14px;
+    font-size: var(--text-body-sm);
     max-width: 360px;
     min-width: 240px;
     animation: toastIn var(--duration-normal) var(--ease-spring);
@@ -1040,21 +1056,21 @@
 
   .toast-dismiss {
     flex-shrink: 0;
-    width: 22px;
-    height: 22px;
+    width: var(--space-5);
+    height: var(--space-5);
     display: flex;
     align-items: center;
     justify-content: center;
     border-radius: var(--radius-xs);
-    color: rgba(255, 255, 255, 0.7);
+    color: var(--ink-on-toast-soft);
     background: transparent;
     transition: background-color var(--duration-fast) var(--ease-standard),
                 color var(--duration-fast) var(--ease-standard);
   }
 
   .toast-dismiss:hover {
-    background: rgba(255, 255, 255, 0.15);
-    color: white;
+    background: color-mix(in srgb, var(--ink-on-toast) 15%, transparent);
+    color: var(--ink-on-toast);
   }
 
   .status-bar {

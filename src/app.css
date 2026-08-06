@@ -129,6 +129,12 @@
   --tier-pill-padding-x: 8px;
   --tier-pill-color: var(--color-on-primary);
   --tier-pill-min-width: 28px;
+
+  /* Toast (theme-stable — both light and dark toasts get a dark surface
+     and light ink so notifications stay readable regardless of mode). */
+  --surface-toast: #241E17;
+  --ink-on-toast: #FFFFFF;
+  --ink-on-toast-soft: rgba(255, 255, 255, 0.7);
 }
 
 /* Manual dark mode override */
