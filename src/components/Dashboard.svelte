@@ -79,8 +79,19 @@
   }
 
   async function handleOpen(id: string) {
-    if (editingId) return;
-    await listStore.loadList(id);
+    // Reset any leftover rename state so a stuck editingId doesn't block opens
+    // (e.g. after a click race that fired the input's onblur mid-click).
+    if (editingId) cancelRename();
+    try {
+      const ok = await listStore.loadList(id);
+      if (!ok) {
+        onerror?.(`That list could not be opened. It may have been deleted — try refreshing.`);
+        return;
+      }
+    } catch (e) {
+      onerror?.(`Could not open list: ${(e as Error).message}`);
+      return;
+    }
     onopeneditor();
   }
 
@@ -96,7 +107,11 @@
     const id = confirmDeleteId;
     confirmDeleteId = null;
     confirmDeleteTitle = '';
-    await dashboardStore.deleteList(id);
+    try {
+      await dashboardStore.deleteList(id);
+    } catch (e) {
+      onerror?.(`Could not delete list: ${(e as Error).message}`);
+    }
   }
 
   function cancelDeleteList() {
@@ -117,15 +132,22 @@
   async function commitRename() {
     if (!editingId) return;
     const id = editingId;
+    // Snapshot editingId locally so a stale completion of an older commit
+    // (e.g. from a click-induced blur that races with a new rename) doesn't
+    // stomp on a freshly-started edit.
+    const snapshotId = id;
     const newTitle = await listStore.renameList(id, editValue);
+    if (editingId !== snapshotId) return;
     if (newTitle) {
       const idx = dashboardStore.lists.findIndex((l) => l.id === id);
       if (idx !== -1) {
         dashboardStore.lists[idx].title = newTitle;
       }
     }
-    editingId = null;
-    editValue = '';
+    if (editingId === snapshotId) {
+      editingId = null;
+      editValue = '';
+    }
   }
 
   function onRenameKeydown(e: KeyboardEvent) {
@@ -185,7 +207,19 @@
     {:else}
       <ul class="draft-grid">
         {#each dashboardStore.lists as list (list.id)}
-          <li class="draft-card">
+          <!-- svelte-ignore a11y_no_noninteractive_element_to_interactive_role -->
+          <li
+            class="draft-card"
+            role="button"
+            tabindex="0"
+            onclick={() => handleOpen(list.id)}
+            onkeydown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                handleOpen(list.id);
+              }
+            }}
+          >
             <div class="card-body">
               {#if editingId === list.id}
                 <input
@@ -195,19 +229,13 @@
                   onblur={() => void commitRename()}
                   onkeydown={onRenameKeydown}
                   onclick={(e) => e.stopPropagation()}
+                  onkeyup={(e) => e.stopPropagation()}
                   maxlength="80"
                   spellcheck="false"
                   placeholder="List title"
                 />
               {:else}
-                <button
-                  type="button"
-                  class="draft-open"
-                  onclick={() => handleOpen(list.id)}
-                  disabled={editingId !== null}
-                >
-                  <div class="draft-title">{list.title}</div>
-                </button>
+                <div class="draft-title">{list.title}</div>
               {/if}
               <div class="draft-meta">
                 <span class="draft-count">{list.itemCount} item{list.itemCount === 1 ? '' : 's'}</span>
@@ -221,7 +249,7 @@
                   class="icon-btn rename-btn"
                   aria-label={`Rename ${list.title}`}
                   title="Rename"
-                  onclick={() => startRename(list.id, list.title)}
+                  onclick={(e) => { e.stopPropagation(); startRename(list.id, list.title); }}
                 ><Pencil size={15} aria-hidden="true" /></button>
               {/if}
               <button
@@ -462,6 +490,7 @@
     border-radius: var(--radius-md);
     min-height: 110px;
     box-shadow: var(--elevation-1);
+    cursor: pointer;
     transition: transform var(--duration-fast) var(--ease-standard),
                 border-color var(--duration-fast) var(--ease-standard),
                 box-shadow var(--duration-fast) var(--ease-standard);
@@ -473,6 +502,11 @@
     box-shadow: var(--elevation-2);
   }
 
+  .draft-card:focus-visible {
+    outline: 2px solid var(--color-secondary);
+    outline-offset: 2px;
+  }
+
   .card-body {
     padding: var(--space-4);
     padding-right: var(--space-10);
@@ -482,31 +516,11 @@
     height: 100%;
   }
 
-  .draft-open {
-    display: block;
-    width: 100%;
-    background: transparent;
-    border: none;
-    padding: 0;
-    margin: 0;
-    text-align: left;
-    cursor: pointer;
-    color: inherit;
-    font: inherit;
-  }
-
-  .draft-open:disabled {
-    cursor: default;
-  }
-
   .draft-title {
     font-family: var(--font-display);
     font-weight: 600;
     font-size: var(--text-body-lg);
     color: var(--on-surface-primary);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   .draft-rename-input {

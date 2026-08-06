@@ -24,32 +24,41 @@
 
   let panelEl: HTMLDivElement | undefined = $state();
   let triggerEl: HTMLElement | null = null;
-  let focusables: HTMLElement[] = $state([]);
 
-  // On open: remember what had focus (so we can restore it on close) and
-  // move focus into the modal. On close: hand focus back to the trigger.
-  // Keep the focusable list cached and refreshed via MutationObserver so
-  // the per-Tab handler doesn't re-query the DOM on every keypress.
+  // On open: capture the trigger so we can restore focus on close, then
+  // move focus into the first focusable inside the panel. On close:
+  // hand focus back to the trigger (if it's still attached).
   $effect(() => {
     if (open && panelEl) {
       const active = document.activeElement;
       triggerEl = active instanceof HTMLElement ? active : null;
 
-      const refresh = () => {
-        focusables = Array.from(panelEl!.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR));
-      };
-      refresh();
-      const first = focusables[0];
-      queueMicrotask(() => first?.focus());
+      const first = panelEl.querySelector<HTMLElement>(FOCUSABLE_SELECTOR);
+      if (first) {
+        try {
+          first.focus();
+        } catch {
+          /* node may have detached mid-tick */
+        }
+      }
+      return;
+    }
 
-      const observer = new MutationObserver(refresh);
-      observer.observe(panelEl, { childList: true, subtree: true });
-      return () => observer.disconnect();
-    } else if (!open && triggerEl) {
+    if (!open && triggerEl) {
       const el = triggerEl;
       triggerEl = null;
-      focusables = [];
-      queueMicrotask(() => el.focus());
+      // Defer one microtask so the panel has cleared before we yank focus
+      // back; otherwise some browsers reset focus to body and trigger an
+      // extra focus event that the tab handler can't predict.
+      queueMicrotask(() => {
+        if (el.isConnected) {
+          try {
+            el.focus();
+          } catch {
+            /* trigger gone */
+          }
+        }
+      });
     }
   });
 
@@ -64,12 +73,15 @@
       return;
     }
     if (e.key !== 'Tab') return;
-    if (focusables.length === 0) {
+    const panel = panelEl;
+    if (!panel) return;
+    const items = Array.from(panel.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR));
+    if (items.length === 0) {
       e.preventDefault();
       return;
     }
-    const first = focusables[0];
-    const last = focusables[focusables.length - 1];
+    const first = items[0];
+    const last = items[items.length - 1];
     const active = document.activeElement;
     if (e.shiftKey && active === first) {
       e.preventDefault();

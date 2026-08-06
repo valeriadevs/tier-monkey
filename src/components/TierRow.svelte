@@ -104,7 +104,7 @@
   }
 
   function commitRename() {
-    const trimmed = renameValue.trim().slice(0, 24);
+    const trimmed = renameValue.trim().slice(0, 80);
     if (trimmed && trimmed !== tier.label) {
       listStore.renameTier(tier.id, trimmed);
     }
@@ -172,7 +172,7 @@
           if (e.key === 'Enter') commitRename();
           if (e.key === 'Escape') cancelRename();
         }}
-        maxlength="24"
+        maxlength="80"
       />
     {:else}
       <button
