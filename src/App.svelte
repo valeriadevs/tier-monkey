@@ -7,6 +7,7 @@
     Download,
     Ellipsis,
     ImageDown,
+    Loader2,
     Moon,
     Monitor,
     Palette,
@@ -431,6 +432,14 @@
     ) {
       return;
     }
+    if (decodingShare) {
+      // Cancel the in-flight share decode so the user isn't stranded on the spinner.
+      ++decodeToken;
+      decodingShare = false;
+      clearShareHash();
+      e.preventDefault();
+      return;
+    }
     if (exportMenuOpen) { closeExportMenu(); e.preventDefault(); return; }
     if (listMenuOpen) { closeListMenu(); e.preventDefault(); return; }
   }
@@ -788,6 +797,24 @@
   onclose={closeTemplatesModal}
   onapplied={handleTemplateApplied}
 />
+
+{#if decodingShare}
+  <!-- svelte-ignore a11y_click_events_have_key_events -->
+  <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+  <div
+    class="decoding-overlay"
+    role="status"
+    aria-live="polite"
+    aria-label="Decoding shared list"
+    onclick={() => { ++decodeToken; decodingShare = false; clearShareHash(); }}
+  >
+      <div class="decoding-card">
+      <div class="decoding-spin"><Loader2 size={28} aria-hidden="true" /></div>
+      <p class="decoding-text">Decoding shared list…</p>
+      <p class="decoding-sub">Press Esc or click anywhere to cancel.</p>
+    </div>
+  </div>
+{/if}
 
 <ShareImportModal
   open={shareImportSnapshot !== null}
@@ -1184,7 +1211,7 @@
     }
   }
 
-  @media (max-width: 540px) {
+  @media (max-width: 480px) {
     .toolbar {
       flex-wrap: wrap;
       height: auto;
@@ -1222,57 +1249,72 @@
     display: inline-flex;
   }
 
-  .list-menu {
-    position: absolute;
-    top: calc(100% + 6px);
-    right: 0;
-    z-index: 50;
-    min-width: 200px;
-    background: var(--surface-panel);
-    border: 1.5px solid var(--color-neutral-200);
-    border-radius: var(--radius-md);
-    box-shadow: var(--elevation-2);
-    padding: var(--space-1);
-    display: flex;
-    flex-direction: column;
-  }
-
+  .list-menu,
   .export-menu {
-    position: absolute;
+    /* Menu chrome (background, border, shadow, padding, layout) lives in
+       shared .menu in app.css; this rule only sets the anchor offset. */
     top: calc(100% + 6px);
     right: 0;
-    z-index: 50;
-    min-width: 200px;
-    background: var(--surface-panel);
-    border: 1.5px solid var(--color-neutral-200);
-    border-radius: var(--radius-md);
-    box-shadow: var(--elevation-2);
-    padding: var(--space-1);
-    display: flex;
-    flex-direction: column;
   }
 
-  .menu-item {
-    display: inline-flex;
+  /* Decoding overlay — visible while share decode is in flight so the
+     user knows the share link did something. Click-to-dismiss. */
+  @keyframes decodingFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes decodingPopIn {
+    from { opacity: 0; transform: translateY(8px) scale(0.97); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  @keyframes decodingSpin {
+    to { transform: rotate(360deg); }
+  }
+
+  .decoding-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 250;
+    background: var(--surface-overlay);
+    backdrop-filter: blur(2px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-4);
+    animation: decodingFadeIn var(--duration-fast) var(--ease-standard);
+  }
+
+  .decoding-card {
+    background: var(--surface-panel);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--elevation-3);
+    padding: var(--space-6) var(--space-8);
+    display: flex;
+    flex-direction: column;
     align-items: center;
     gap: var(--space-2);
-    text-align: left;
-    padding: var(--space-2) var(--space-3);
-    border-radius: var(--radius-sm);
-    background: transparent;
+    max-width: 360px;
+    animation: decodingPopIn var(--duration-normal) var(--ease-spring);
+  }
+
+  .decoding-spin {
+    color: var(--color-secondary);
+    animation: decodingSpin 1s linear infinite;
+  }
+
+  .decoding-text {
+    margin: var(--space-1) 0 0 0;
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: var(--text-h3);
     color: var(--on-surface-primary);
-    font-size: 14px;
-    font-weight: 500;
-    width: 100%;
   }
 
-  .menu-item:hover {
-    background: var(--color-neutral-100);
-  }
-
-  .menu-divider {
-    height: 1px;
-    background: var(--color-neutral-200);
-    margin: var(--space-1) 0;
+  .decoding-sub {
+    margin: 0;
+    color: var(--on-surface-secondary);
+    font-size: var(--text-caption);
   }
 </style>

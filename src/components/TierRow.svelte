@@ -441,50 +441,9 @@
   }
 
   .tier-menu {
-    position: absolute;
+    /* Position only — chrome comes from shared .menu in app.css. */
     top: 40px;
     right: 8px;
-    z-index: 50;
-    min-width: 200px;
-    background: var(--surface-panel);
-    border: 1.5px solid var(--color-neutral-200);
-    border-radius: var(--radius-md);
-    box-shadow: var(--elevation-2);
-    padding: var(--space-1);
-    display: flex;
-    flex-direction: column;
-  }
-
-  .menu-item {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-2);
-    text-align: left;
-    padding: var(--space-2) var(--space-3);
-    border-radius: var(--radius-sm);
-    background: transparent;
-    color: var(--on-surface-primary);
-    font-size: 14px;
-    font-weight: 500;
-    width: 100%;
-  }
-
-  .menu-item:hover {
-    background: var(--color-neutral-100);
-  }
-
-  .menu-item.destructive {
-    color: var(--color-error-fill, #D92D20);
-  }
-
-  .menu-item.destructive:hover {
-    background: var(--color-error-subtle, #FDE8E8);
-  }
-
-  .menu-divider {
-    height: 1px;
-    background: var(--color-neutral-200);
-    margin: var(--space-1) 0;
   }
 
   @media (max-width: 768px) {

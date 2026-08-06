@@ -683,7 +683,7 @@
     }
   }
 
-  @media (max-width: 400px) {
+  @media (max-width: 480px) {
     .template-preview {
       grid-template-columns: 1fr;
     }

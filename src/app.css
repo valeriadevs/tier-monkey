@@ -380,6 +380,61 @@ button.btn-secondary:disabled {
   cursor: not-allowed;
 }
 
+/* ----------------------------------------------------------------
+   Shared popover / menu chrome. Use semantic .menu for the panel;
+   .menu-item for entries; .menu-divider for sections; .menu-destructive
+   on a menu-item that performs a delete-style action. Position
+   (top/right/left) is left to the parent so the panel can be anchored.
+   ---------------------------------------------------------------- */
+.menu {
+  position: absolute;
+  z-index: 50;
+  min-width: 200px;
+  background: var(--surface-panel);
+  border: 1.5px solid var(--color-neutral-200);
+  border-radius: var(--radius-md);
+  box-shadow: var(--elevation-2);
+  padding: var(--space-1);
+  display: flex;
+  flex-direction: column;
+}
+
+.menu-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  text-align: left;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--on-surface-primary);
+  font-size: var(--text-body-sm);
+  font-weight: 500;
+  width: 100%;
+  transition: background-color var(--duration-fast) var(--ease-standard),
+              color var(--duration-fast) var(--ease-standard);
+}
+
+.menu-item:hover,
+.menu-item:focus-visible {
+  background: var(--color-neutral-100);
+}
+
+.menu-item.destructive {
+  color: var(--color-error-fill);
+}
+
+.menu-item.destructive:hover,
+.menu-item.destructive:focus-visible {
+  background: var(--color-error-subtle);
+}
+
+.menu-divider {
+  height: 1px;
+  background: var(--color-neutral-200);
+  margin: var(--space-1) 0;
+}
+
 /* Shared modal intro paragraph (TemplatesModal / ShareLinkModal / ShareImportModal) */
 .modal-intro {
   color: var(--on-surface-secondary);
