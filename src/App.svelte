@@ -215,7 +215,14 @@
     if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
       e.preventDefault();
       isWindowDragOver = false;
-      if (view !== 'editor') return;
+      if (view !== 'editor') {
+        const count = e.dataTransfer.files.length;
+        showToast(
+          `Open or create a list first to add ${count} image${count === 1 ? '' : 's'}.`,
+          'error'
+        );
+        return;
+      }
       const files = e.dataTransfer.files;
       pendingResults = new Array(files.length);
       nextResultCursor = 0;

@@ -4,6 +4,7 @@ import { db, type ItemRecord, type ListRecord, deleteListCascade } from './db';
 import {
   cacheAssetUrls,
   clearAllCachedUrls,
+  deleteAsset,
   getAssetUrls,
   resolveAssetUrls,
   revokeAssetUrls,
@@ -271,9 +272,17 @@ function createListStore() {
     };
   }
 
-  async function addItemFromUpload(image: ProcessedImage): Promise<Item> {
-    pushHistory();
+  async function addItemFromUpload(image: ProcessedImage): Promise<Item | null> {
+    const listIdAtStart = currentListId;
+    if (!listIdAtStart) return null;
     const item = await persistImage(image, null, 'M');
+    // If the user deleted or switched lists during the awaits, the asset is
+    // orphaned — drop it and skip the push.
+    if (currentListId !== listIdAtStart) {
+      await deleteAsset(item.assetId);
+      return null;
+    }
+    pushHistory();
     items.push(item);
     schedulePersist();
     announcer.say(`Added ${item.alt || 'image'} to tray`);
@@ -284,9 +293,15 @@ function createListStore() {
     processed: ProcessedImage,
     tierId: string | null,
     displaySize: DisplaySize = 'M'
-  ): Promise<Item> {
-    pushHistory();
+  ): Promise<Item | null> {
+    const listIdAtStart = currentListId;
+    if (!listIdAtStart) return null;
     const item = await persistImage(processed, tierId, displaySize);
+    if (currentListId !== listIdAtStart) {
+      await deleteAsset(item.assetId);
+      return null;
+    }
+    pushHistory();
     items.push(item);
     schedulePersist();
     return item;
@@ -595,18 +610,17 @@ function createListStore() {
     const id = currentListId;
     const now = Date.now();
 
+    // Snapshot all data synchronously so we can race-detect in the transaction
+    // and bail before re-PUTing a deleted list.
     const listRecord: ListRecord = {
       id,
       title: currentTitle,
       createdAt: now,
       updatedAt: now,
       schemaVersion: CURRENT_SCHEMA_VERSION,
-      tiers: structuredClone(tiers),
+      tiers: [...tiers],
       paletteIndex
     };
-
-    const existing = await db.lists.get(id);
-    if (existing) listRecord.createdAt = existing.createdAt;
 
     const groups = new Map<string | null, Item[]>();
     for (const item of items) {
@@ -632,6 +646,15 @@ function createListStore() {
     }
 
     await db.transaction('rw', db.lists, db.items, async () => {
+      // Bail if the user deleted or switched lists during the debounce delay —
+      // otherwise we'd resurrect a ghost list by re-PUT-ing the old record.
+      if (currentListId !== id) return;
+
+      // Lookup createdAt inside the transaction so we can't read a row that
+      // was just deleted.
+      const existing = await db.lists.get(id);
+      if (existing) listRecord.createdAt = existing.createdAt;
+
       await db.lists.put(listRecord);
       await db.items.where('listId').equals(id).delete();
       if (itemRecords.length > 0) {

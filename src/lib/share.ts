@@ -3,10 +3,13 @@ import type { DisplaySize } from './types';
 const SHARE_VERSION = 1 as const;
 
 // Hard upper bound on the encoded payload size we'll accept. Browsers
-// truncate URLs around 32–80 KB; a 2 MB ceiling stops us from feeding
-// absurdly large or zip-bomb payloads into atob + DecompressionStream
-// and also keeps the produced share URL honest about what's shareable.
+// truncate URLs around 32–80 KB; a 2 MB ceiling keeps the produced share URL
+// honest about what's shareable.
 const MAX_SHARE_BYTES = 2 * 1024 * 1024;
+// Upper bound on the *decompressed* byte stream. A 2 MB base64 payload can
+// still inflate to gigabytes after gunzip — we cap how much we actually pull
+// out of the DecompressionStream to prevent zip-bomb DoS.
+const MAX_DECOMPRESSED_BYTES = 8 * 1024 * 1024;
 
 export interface ShareSnapshot {
   v: 1;
@@ -44,17 +47,47 @@ export async function decodeShare(payload: string): Promise<ShareSnapshot> {
     );
   }
   const padded = payload.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - (payload.length % 4)) % 4);
-  const binary = atob(padded);
+  let binary: string;
+  try {
+    binary = atob(padded);
+  } catch (e) {
+    throw new Error(`Invalid share encoding: ${(e as Error).message}`);
+  }
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-  const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
-  const text = await new Response(stream).text();
+  const stream = new Blob([bytes])
+    .stream()
+    .pipeThrough(new DecompressionStream('gzip'))
+    .pipeThrough(countingStream(MAX_DECOMPRESSED_BYTES));
+  let text: string;
+  try {
+    text = await new Response(stream).text();
+  } catch (e) {
+    if ((e as Error).message?.includes('exceeds')) throw e;
+    throw new Error(`Decompression failed: ${(e as Error).message}`);
+  }
   const obj = JSON.parse(text);
   if (obj.v !== SHARE_VERSION) throw new Error(`Unsupported share version: ${obj.v}`);
   if (!Array.isArray(obj.tiers) || !Array.isArray(obj.items) || !Array.isArray(obj.images)) {
     throw new Error('Malformed share payload');
   }
   return obj as ShareSnapshot;
+}
+
+function countingStream(maxBytes: number): TransformStream<Uint8Array, Uint8Array> {
+  let total = 0;
+  return new TransformStream<Uint8Array, Uint8Array>({
+    transform(chunk, controller) {
+      total += chunk.byteLength;
+      if (total > maxBytes) {
+        controller.error(
+          new Error(`Decompressed share exceeds ${(maxBytes / 1024 / 1024).toFixed(0)} MB limit`)
+        );
+        return;
+      }
+      controller.enqueue(chunk);
+    }
+  });
 }
 
 export async function buildShareSnapshotFromList(
