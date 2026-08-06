@@ -292,6 +292,24 @@ button:focus-visible {
   outline-offset: 2px;
 }
 
+/* ----------------------------------------------------------------
+   Standard breakpoint set — keep components in sync:
+     sm: ≤ 480px   (small phones)
+     md: ≤ 640px   (large phones)
+     lg: ≤ 768px   (tablets)
+     xl: ≤ 1024px  (small laptops)
+   Use in @media queries: @media (max-width: 640px) { ... }
+   Note: CSS variables cannot be used inside @media queries directly.
+   ---------------------------------------------------------------- */
+
+/* Shared focus ring — consistent 2px secondary outline across all
+   inputs and click targets that need extra emphasis (vs the default
+   2px global ring on plain buttons). */
+.focus-ring:focus-visible {
+  outline: 2px solid var(--color-secondary);
+  outline-offset: 2px;
+}
+
 /* Shared modal intro paragraph (TemplatesModal / ShareLinkModal / ShareImportModal) */
 .modal-intro {
   color: var(--on-surface-secondary);

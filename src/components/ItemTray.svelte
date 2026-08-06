@@ -1,5 +1,6 @@
 <script lang="ts">
   import { dndzone, SHADOW_ITEM_MARKER_PROPERTY_NAME } from 'svelte-dnd-action';
+  import { fade } from 'svelte/transition';
   import { ClipboardPaste } from '@lucide/svelte';
   import type { Item } from '../lib/types';
   import { DND_TYPE_ITEMS } from '../lib/types';
@@ -117,7 +118,7 @@
     </div>
   </div>
   {#if urlInputOpen}
-    <form class="url-form" onsubmit={submitUrl}>
+    <form class="url-form" onsubmit={submitUrl} transition:fade={{ duration: 120 }}>
       <input
         bind:this={urlInputEl}
         bind:value={urlInput}

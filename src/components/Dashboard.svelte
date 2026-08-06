@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Pencil, X } from '@lucide/svelte';
+  import { Pencil, Upload, MousePointerClick, Share2, X } from '@lucide/svelte';
   import { dashboardStore, formatRelativeTime } from '../lib/dashboard.svelte';
   import { listStore } from '../lib/list.svelte';
   import { TEMPLATES, type Template } from '../lib/templates';
@@ -161,6 +161,26 @@
       <div class="empty-card">
         <p class="empty-text">No drafts yet.</p>
         <p class="empty-sub">Click <strong>New list</strong> to start your first tier list.</p>
+        <ol class="onboarding">
+          <li class="onboarding-step">
+            <span class="onboarding-icon" aria-hidden="true"><Upload size={18} /></span>
+            <div>
+              <strong>Add images.</strong> Drop files anywhere or click <em>Upload</em>.
+            </div>
+          </li>
+          <li class="onboarding-step">
+            <span class="onboarding-icon" aria-hidden="true"><MousePointerClick size={18} /></span>
+            <div>
+              <strong>Drag into tiers.</strong> Move cards up or down to rank them.
+            </div>
+          </li>
+          <li class="onboarding-step">
+            <span class="onboarding-icon" aria-hidden="true"><Share2 size={18} /></span>
+            <div>
+              <strong>Export or share.</strong> Save as PNG, or send a link.
+            </div>
+          </li>
+        </ol>
       </div>
     {:else}
       <ul class="draft-grid">
@@ -382,9 +402,48 @@
   }
 
   .empty-sub {
-    font-size: 13px;
+    font-size: var(--text-body-sm);
     color: var(--color-neutral-500);
     margin: 0;
+  }
+
+  .onboarding {
+    margin: var(--space-4) 0 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  .onboarding-step {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-3);
+    padding: var(--space-2) var(--space-3);
+    background: var(--surface-sunken);
+    border: 1.5px dashed var(--border-default);
+    border-radius: var(--radius-sm);
+    color: var(--on-surface-secondary);
+    font-size: var(--text-body-sm);
+    line-height: 1.4;
+  }
+
+  .onboarding-step strong {
+    color: var(--on-surface-primary);
+    font-weight: 600;
+  }
+
+  .onboarding-icon {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    background: var(--color-secondary-subtle);
+    color: var(--color-secondary);
+    border-radius: var(--radius-sm);
   }
 
   .draft-grid {

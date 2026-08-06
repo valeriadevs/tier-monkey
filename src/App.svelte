@@ -2,6 +2,8 @@
   import {
     ArrowLeft,
     Check,
+    Copy,
+    ChevronDown,
     Download,
     Moon,
     Monitor,
@@ -16,7 +18,13 @@
   import { listStore } from './lib/list.svelte';
   import { themeStore } from './lib/theme.svelte';
   import { uploadFiles, type UploadResult } from './lib/upload';
-  import { exportListToPng, downloadBlob, sanitizeFilename } from './lib/export';
+  import { fade } from 'svelte/transition';
+  import {
+    copyBlobToClipboard,
+    downloadBlob,
+    exportListToBlob,
+    sanitizeFilename
+  } from './lib/export';
   import { db } from './lib/db';
   import { announcer } from './lib/announcer.svelte';
   import {
@@ -51,6 +59,7 @@
   let fileInputEl: HTMLInputElement | undefined = $state();
   let isExporting = $state(false);
   let isSharing = $state(false);
+  let exportMenuOpen = $state(false);
 
   let templatesModalOpen = $state(false);
   let shareImportSnapshot = $state<ShareSnapshot | null>(null);
@@ -131,6 +140,12 @@
     }
   }
 
+  function onWindowPointerDownExport(e: PointerEvent) {
+    if (!exportMenuOpen) return;
+    const target = e.target as HTMLElement;
+    if (!target.closest('.export-cluster')) exportMenuOpen = false;
+  }
+
   function onWindowDragLeave(e: DragEvent) {
     if (e.relatedTarget === null) {
       isWindowDragOver = false;
@@ -179,17 +194,22 @@
     }
   }
 
-  async function handleExport() {
+  async function handleExport(format: 'png' | 'jpeg' = 'png') {
     if (isExporting) return;
     if (listStore.tiers.length === 0) return;
+    exportMenuOpen = false;
     isExporting = true;
     try {
-      const blob = await exportListToPng({
-        title: listStore.currentTitle,
-        tiers: listStore.tiers,
-        items: listStore.items
-      });
-      const filename = `${sanitizeFilename(listStore.currentTitle)}.png`;
+      const blob = await exportListToBlob(
+        {
+          title: listStore.currentTitle,
+          tiers: listStore.tiers,
+          items: listStore.items
+        },
+        format
+      );
+      const ext = format === 'jpeg' ? 'jpg' : 'png';
+      const filename = `${sanitizeFilename(listStore.currentTitle)}.${ext}`;
       downloadBlob(blob, filename);
       const sizeKb = Math.round(blob.size / 1024);
       showToast(`Exported ${filename} (${sizeKb} KB)`);
@@ -198,6 +218,34 @@
     } finally {
       isExporting = false;
     }
+  }
+
+  async function handleCopyExport() {
+    if (isExporting) return;
+    if (listStore.tiers.length === 0) return;
+    exportMenuOpen = false;
+    isExporting = true;
+    try {
+      const blob = await exportListToBlob({
+        title: listStore.currentTitle,
+        tiers: listStore.tiers,
+        items: listStore.items
+      });
+      await copyBlobToClipboard(blob);
+      showToast('Image copied to clipboard');
+    } catch (e) {
+      showToast(`Copy failed: ${(e as Error).message}`, 'error');
+    } finally {
+      isExporting = false;
+    }
+  }
+
+  function toggleExportMenu() {
+    exportMenuOpen = !exportMenuOpen;
+  }
+
+  function closeExportMenu() {
+    exportMenuOpen = false;
   }
 
   async function resizeImageForShare(blob: Blob): Promise<Blob> {
@@ -346,6 +394,7 @@
   onhashchange={onHashChange}
   onpagehide={onPageHide}
   onvisibilitychange={onVisibilityChange}
+  onpointerdown={onWindowPointerDownExport}
   ondragenter={onWindowDragEnter}
   ondragover={onWindowDragOver}
   ondragleave={onWindowDragLeave}
@@ -408,9 +457,19 @@
     {/if}
   </button>
   {#if view === 'editor'}
-    <button class="btn-primary" onclick={handleExport} disabled={isExporting}>
-      {#if isExporting}Exporting…{:else}<Download size={16} aria-hidden="true" /> Export{/if}
-    </button>
+    <div class="export-cluster">
+      <button class="btn-primary" onclick={toggleExportMenu} disabled={isExporting} aria-expanded={exportMenuOpen} aria-haspopup="menu">
+        {#if isExporting}Exporting…{:else}<Download size={16} aria-hidden="true" /> Export <ChevronDown size={14} aria-hidden="true" />{/if}
+      </button>
+      {#if exportMenuOpen}
+        <div class="export-menu" role="menu" transition:fade={{ duration: 100 }}>
+          <button class="menu-item" onclick={() => handleExport('png')}><Download size={15} aria-hidden="true" /> Download PNG</button>
+          <button class="menu-item" onclick={() => handleExport('jpeg')}><Download size={15} aria-hidden="true" /> Download JPEG</button>
+          <div class="menu-divider" aria-hidden="true"></div>
+          <button class="menu-item" onclick={handleCopyExport}><Copy size={15} aria-hidden="true" /> Copy to clipboard</button>
+        </div>
+      {/if}
+    </div>
   {/if}
 </header>
 
@@ -895,5 +954,49 @@
     .back-btn {
       margin-right: 0;
     }
+  }
+
+  .export-cluster {
+    position: relative;
+    display: inline-flex;
+  }
+
+  .export-menu {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    z-index: 50;
+    min-width: 200px;
+    background: var(--surface-panel);
+    border: 1.5px solid var(--color-neutral-200);
+    border-radius: var(--radius-md);
+    box-shadow: var(--elevation-2);
+    padding: var(--space-1);
+    display: flex;
+    flex-direction: column;
+  }
+
+  .menu-item {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    text-align: left;
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--on-surface-primary);
+    font-size: 14px;
+    font-weight: 500;
+    width: 100%;
+  }
+
+  .menu-item:hover {
+    background: var(--color-neutral-100);
+  }
+
+  .menu-divider {
+    height: 1px;
+    background: var(--color-neutral-200);
+    margin: var(--space-1) 0;
   }
 </style>

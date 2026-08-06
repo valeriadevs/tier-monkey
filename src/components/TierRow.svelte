@@ -1,5 +1,6 @@
 <script lang="ts">
   import { dndzone, SHADOW_ITEM_MARKER_PROPERTY_NAME } from 'svelte-dnd-action';
+  import { fade } from 'svelte/transition';
   import { ChevronUp, ChevronDown, Ellipsis, Palette, Pencil, Trash2 } from '@lucide/svelte';
   import type { Item, Tier } from '../lib/types';
   import { DND_TYPE_ITEMS } from '../lib/types';
@@ -147,7 +148,7 @@
       aria-label="Change tier color"
     ></button>
     {#if colorPickerOpen}
-      <div class="picker-anchor">
+      <div class="picker-anchor" transition:fade={{ duration: 120 }}>
         <ColorPicker
           value={tier.color}
           onchange={pickColor}
@@ -193,7 +194,7 @@
       <Ellipsis size={18} aria-hidden="true" />
     </button>
     {#if menuOpen}
-      <div class="tier-menu" role="menu">
+      <div class="tier-menu" role="menu" transition:fade={{ duration: 120 }}>
         <button class="menu-item" onclick={() => { startRename(); menuOpen = false; }}><Pencil size={15} aria-hidden="true" /> Rename</button>
         <button class="menu-item" onclick={() => { colorPickerOpen = true; menuOpen = false; }}><Palette size={15} aria-hidden="true" /> Change color</button>
         <button class="menu-item" onclick={() => { listStore.moveTier(tier.id, -1); menuOpen = false; }}><ChevronUp size={15} aria-hidden="true" /> Move up</button>

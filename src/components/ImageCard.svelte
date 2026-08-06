@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { fade } from 'svelte/transition';
   import { Maximize2, X } from '@lucide/svelte';
   import type { DisplaySize, Item } from '../lib/types';
   import { DISPLAY_SIZE_PX } from '../lib/types';
@@ -94,7 +95,7 @@
     ><Maximize2 size={13} aria-hidden="true" /></button>
   {/if}
   {#if popoverOpen}
-    <div class="resize-sheet" role="menu">
+    <div class="resize-sheet" role="menu" transition:fade={{ duration: 120 }}>
       {#each sizes as s (s)}
         {@const spx = DISPLAY_SIZE_PX[s]}
         <button

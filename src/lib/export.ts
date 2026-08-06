@@ -27,7 +27,16 @@ export type ExportInput = {
   items: Item[];
 };
 
+export type ExportFormat = 'png' | 'jpeg';
+
 export async function exportListToPng(input: ExportInput): Promise<Blob> {
+  return exportListToBlob(input, 'png');
+}
+
+export async function exportListToBlob(
+  input: ExportInput,
+  format: ExportFormat = 'png'
+): Promise<Blob> {
   // Wait for the display font to actually be rasterizable. Without this,
   // a fresh export before Google Fonts has loaded paints fallback
   // sans-serif — the PNG doesn't match what's on screen.
@@ -165,7 +174,10 @@ export async function exportListToPng(input: ExportInput): Promise<Blob> {
       y += ROW_HEIGHT + ROW_GAP;
     }
 
-    return await canvas.convertToBlob({ type: 'image/png' });
+    return await canvas.convertToBlob({
+      type: format === 'jpeg' ? 'image/jpeg' : 'image/png',
+      quality: format === 'jpeg' ? 0.92 : undefined
+    });
   } finally {
     for (const bitmap of bitmapMap.values()) {
       bitmap.close();
@@ -228,4 +240,11 @@ export function sanitizeFilename(s: string): string {
       .trim()
       .slice(0, 80) || 'tier-list'
   );
+}
+
+export async function copyBlobToClipboard(blob: Blob): Promise<void> {
+  if (!('write' in navigator.clipboard) || typeof ClipboardItem === 'undefined') {
+    throw new Error('Clipboard image API not available in this browser');
+  }
+  await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
 }
