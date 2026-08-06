@@ -23,10 +23,13 @@
   let confirmDeleteTitle = $state('');
   let pendingTemplateApply = $state<Template | null>(null);
 
+  // Always reload on mount — we want fresh data every time the user lands
+  // back on the dashboard (new lists, deletes, renames all change
+  // db.lists since the previous load). Calling load() repeatedly is cheap
+  // because Dexie indexes the table and dashboardStore.load fetches by
+  // `updatedAt`.
   $effect(() => {
-    if (!dashboardStore.loaded) {
-      void dashboardStore.load();
-    }
+    void dashboardStore.load();
   });
 
   $effect(() => {

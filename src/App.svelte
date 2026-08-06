@@ -287,6 +287,27 @@
     }
   }
 
+  // Manual save button — always toasts the result so the user sees that
+  // the click landed, regardless of whether anything was actually dirty.
+  async function handleSaveClick() {
+    if (!listStore.currentListId) {
+      showToast('No list to save.', 'error');
+      return;
+    }
+    showToast('Saving…', 'info', 1500);
+    try {
+      await listStore.forceSave();
+      const err = listStore.lastSaveError;
+      if (err) {
+        showToast(`Save failed: ${err}`, 'error', 6000);
+      } else {
+        showToast('Saved.', 'info', 1500);
+      }
+    } catch (e) {
+      showToast(`Save failed: ${(e as Error).message}`, 'error', 6000);
+    }
+  }
+
   async function handleExport(format: 'png' | 'jpeg' = 'png') {
     if (isExporting) return;
     if (listStore.tiers.length === 0) return;
@@ -641,37 +662,40 @@
       title="Redo (Ctrl+Shift+Z)"
       aria-label="Redo"
     ><Redo2 size={18} aria-hidden="true" /></button>
-    <button
-      type="button"
-      class="save-pill"
-      class:saving={listStore.saveStatus === 'saving'}
-      class:dirty={listStore.saveStatus === 'dirty'}
-      class:error={!!listStore.lastSaveError}
-      disabled={!listStore.currentListId || listStore.saveStatus === 'saving'}
-      onclick={() => listStore.forceSave()}
-      title={listStore.lastSaveError
-        ? `${listStore.lastSaveError} — click to retry`
-        : listStore.saveStatus === 'dirty'
-          ? 'Click to save now'
-          : listStore.saveStatus === 'saving'
-            ? 'Saving…'
-            : 'Click to save now'}
-      aria-live="polite"
-    >
+    <div class="save-cluster" aria-live="polite">
       {#if listStore.saveStatus === 'saving'}
-        <span class="save-spin"><Loader2 size={14} aria-hidden="true" /></span>
-        <span>Saving…</span>
+        <span class="save-state saving">
+          <span class="save-spin"><Loader2 size={14} aria-hidden="true" /></span>
+          Saving…
+        </span>
       {:else if listStore.lastSaveError}
-        <TriangleAlert size={14} aria-hidden="true" />
-        <span>Save failed</span>
+        <span class="save-state error" title={listStore.lastSaveError}>
+          <TriangleAlert size={14} aria-hidden="true" />
+          Save failed
+        </span>
       {:else if listStore.saveStatus === 'dirty'}
-        <span class="save-dot" aria-hidden="true"></span>
-        <span>Unsaved</span>
+        <span class="save-state dirty">
+          <span class="save-dot" aria-hidden="true"></span>
+          Unsaved
+        </span>
       {:else}
-        <Check size={14} aria-hidden="true" />
-        <span>Saved</span>
+        <span class="save-state" title={listStore.lastSavedAt ? `Saved at ${new Date(listStore.lastSavedAt).toLocaleTimeString()}` : 'Up to date'}>
+          <Check size={14} aria-hidden="true" />
+          Saved
+        </span>
       {/if}
-    </button>
+      <button
+        type="button"
+        class="btn-secondary save-btn"
+        onclick={() => handleSaveClick()}
+        disabled={!listStore.currentListId || listStore.saveStatus === 'saving'}
+        title={!listStore.currentListId
+          ? 'No list open'
+          : listStore.saveStatus === 'dirty'
+            ? 'Save now'
+            : 'Force save'}
+      >Save</button>
+    </div>
     <button class="btn-secondary" onclick={pickFiles}><Upload size={16} aria-hidden="true" /> Upload</button>
     <button class="btn-secondary" onclick={openTemplatesModal}><Palette size={16} aria-hidden="true" /> Templates</button>
     <button class="btn-secondary" onclick={handleShare} disabled={isSharing}>
@@ -1019,50 +1043,44 @@
     cursor: not-allowed;
   }
 
-  /* Save status pill — always visible, click to force-save. */
-  .save-pill {
+  /* Save cluster — pair of indicator + explicit button. */
+  .save-cluster {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+  }
+
+  .save-state {
     display: inline-flex;
     align-items: center;
     gap: var(--space-1);
-    padding: 0 var(--space-3);
-    height: 32px;
-    border-radius: var(--radius-sm);
-    background: var(--surface-panel);
+    padding: 0 var(--space-2);
+    height: 28px;
+    border-radius: var(--radius-full);
+    background: var(--surface-sunken);
     color: var(--on-surface-secondary);
-    border: 1.5px solid var(--border-default);
-    font-size: var(--text-body-sm);
+    font-size: var(--text-caption);
     font-weight: 600;
-    cursor: pointer;
-    transition: background-color var(--duration-fast) var(--ease-standard),
-                border-color var(--duration-fast) var(--ease-standard),
-                color var(--duration-fast) var(--ease-standard);
   }
 
-  .save-pill:hover:not(:disabled) {
-    background: var(--color-neutral-100);
-  }
-
-  .save-pill:disabled {
-    cursor: not-allowed;
-    opacity: 0.6;
-  }
-
-  .save-pill.saving {
+  .save-state.saving {
     background: var(--color-secondary-subtle);
-    border-color: var(--color-secondary);
     color: var(--color-secondary);
   }
 
-  .save-pill.dirty {
-    border-color: var(--color-warning-fill, #F6A609);
+  .save-state.dirty {
+    background: color-mix(in srgb, var(--color-warning-fill, #F6A609) 12%, transparent);
     color: var(--color-warning-fill, #F6A609);
-    background: color-mix(in srgb, var(--color-warning-fill, #F6A609) 8%, transparent);
   }
 
-  .save-pill.error {
-    border-color: var(--color-error-fill);
-    color: var(--color-error-fill);
+  .save-state.error {
     background: var(--color-error-subtle);
+    color: var(--color-error-fill);
+  }
+
+  .save-btn {
+    height: 32px;
+    padding: 0 var(--space-3);
   }
 
   .save-dot {
@@ -1070,7 +1088,6 @@
     height: 8px;
     border-radius: 50%;
     background: var(--color-warning-fill, #F6A609);
-    box-shadow: 0 0 0 0 var(--color-warning-fill, #F6A609);
     animation: saveDotPulse 1.6s ease-in-out infinite;
   }
 
