@@ -641,29 +641,37 @@
       title="Redo (Ctrl+Shift+Z)"
       aria-label="Redo"
     ><Redo2 size={18} aria-hidden="true" /></button>
-    {#if listStore.saveStatus === 'saving'}
-      <span class="save-pill saving" aria-live="polite">
-        <span class="save-spin"><Loader2 size={14} aria-hidden="true" /></span> Saving…
-      </span>
-    {:else if listStore.saveStatus === 'dirty'}
-      <button
-        type="button"
-        class="btn-secondary save-btn save-dirty"
-        onclick={() => listStore.forceSave()}
-        title="Click to save now"
-      >Save</button>
-    {:else if listStore.lastSaveError}
-      <button
-        type="button"
-        class="btn-secondary save-btn save-error"
-        onclick={() => listStore.forceSave()}
-        title={listStore.lastSaveError}
-      >Save failed — retry</button>
-    {:else}
-      <span class="save-pill" aria-live="polite" title={`Saved ${listStore.lastSavedAt ? new Date(listStore.lastSavedAt).toLocaleTimeString() : ''}`}>
-        <Check size={14} aria-hidden="true" /> Saved
-      </span>
-    {/if}
+    <button
+      type="button"
+      class="save-pill"
+      class:saving={listStore.saveStatus === 'saving'}
+      class:dirty={listStore.saveStatus === 'dirty'}
+      class:error={!!listStore.lastSaveError}
+      disabled={!listStore.currentListId || listStore.saveStatus === 'saving'}
+      onclick={() => listStore.forceSave()}
+      title={listStore.lastSaveError
+        ? `${listStore.lastSaveError} — click to retry`
+        : listStore.saveStatus === 'dirty'
+          ? 'Click to save now'
+          : listStore.saveStatus === 'saving'
+            ? 'Saving…'
+            : 'Click to save now'}
+      aria-live="polite"
+    >
+      {#if listStore.saveStatus === 'saving'}
+        <span class="save-spin"><Loader2 size={14} aria-hidden="true" /></span>
+        <span>Saving…</span>
+      {:else if listStore.lastSaveError}
+        <TriangleAlert size={14} aria-hidden="true" />
+        <span>Save failed</span>
+      {:else if listStore.saveStatus === 'dirty'}
+        <span class="save-dot" aria-hidden="true"></span>
+        <span>Unsaved</span>
+      {:else}
+        <Check size={14} aria-hidden="true" />
+        <span>Saved</span>
+      {/if}
+    </button>
     <button class="btn-secondary" onclick={pickFiles}><Upload size={16} aria-hidden="true" /> Upload</button>
     <button class="btn-secondary" onclick={openTemplatesModal}><Palette size={16} aria-hidden="true" /> Templates</button>
     <button class="btn-secondary" onclick={handleShare} disabled={isSharing}>
@@ -1011,37 +1019,68 @@
     cursor: not-allowed;
   }
 
-  /* Save status pill — sits in the toolbar between the undo/redo icons
-     and the action buttons. */
+  /* Save status pill — always visible, click to force-save. */
   .save-pill {
     display: inline-flex;
     align-items: center;
     gap: var(--space-1);
-    padding: 0 var(--space-2);
-    height: 28px;
-    border-radius: var(--radius-full);
-    background: var(--surface-sunken);
+    padding: 0 var(--space-3);
+    height: 32px;
+    border-radius: var(--radius-sm);
+    background: var(--surface-panel);
     color: var(--on-surface-secondary);
-    font-size: var(--text-caption);
+    border: 1.5px solid var(--border-default);
+    font-size: var(--text-body-sm);
     font-weight: 600;
+    cursor: pointer;
+    transition: background-color var(--duration-fast) var(--ease-standard),
+                border-color var(--duration-fast) var(--ease-standard),
+                color var(--duration-fast) var(--ease-standard);
+  }
+
+  .save-pill:hover:not(:disabled) {
+    background: var(--color-neutral-100);
+  }
+
+  .save-pill:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
   }
 
   .save-pill.saving {
     background: var(--color-secondary-subtle);
+    border-color: var(--color-secondary);
     color: var(--color-secondary);
   }
 
-  .save-btn.save-dirty {
+  .save-pill.dirty {
     border-color: var(--color-warning-fill, #F6A609);
     color: var(--color-warning-fill, #F6A609);
+    background: color-mix(in srgb, var(--color-warning-fill, #F6A609) 8%, transparent);
   }
 
-  .save-btn.save-error {
+  .save-pill.error {
     border-color: var(--color-error-fill);
     color: var(--color-error-fill);
+    background: var(--color-error-subtle);
+  }
+
+  .save-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--color-warning-fill, #F6A609);
+    box-shadow: 0 0 0 0 var(--color-warning-fill, #F6A609);
+    animation: saveDotPulse 1.6s ease-in-out infinite;
+  }
+
+  @keyframes saveDotPulse {
+    0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-warning-fill, #F6A609) 60%, transparent); }
+    50%      { box-shadow: 0 0 0 6px color-mix(in srgb, var(--color-warning-fill, #F6A609) 0%, transparent); }
   }
 
   .save-spin {
+    display: inline-flex;
     animation: saveSpin 1s linear infinite;
   }
 
