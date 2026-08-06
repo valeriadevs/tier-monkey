@@ -186,10 +186,16 @@
     return !!e.dataTransfer?.types.includes('Files');
   }
 
+  // Use a counter rather than `e.relatedTarget === null` so the overlay
+  // doesn't flicker when the cursor crosses between siblings inside the
+  // window. The overlay only hides when the count drops back to zero
+  // (i.e. the cursor has fully exited the window).
+  let dragCounter = 0;
+
   function onWindowDragEnter(e: DragEvent) {
-    if (isFileDrag(e)) {
-      isWindowDragOver = true;
-    }
+    if (!isFileDrag(e)) return;
+    dragCounter++;
+    isWindowDragOver = true;
   }
 
   function onWindowDragOver(e: DragEvent) {
@@ -205,16 +211,21 @@
     if (listMenuOpen && !target.closest('.list-menu-cluster')) listMenuOpen = false;
   }
 
-  function onWindowDragLeave(e: DragEvent) {
-    if (e.relatedTarget === null) {
-      isWindowDragOver = false;
-    }
+  function onWindowDragLeave(_e: DragEvent) {
+    if (!isFileDrag(_e)) return;
+    dragCounter = Math.max(0, dragCounter - 1);
+    if (dragCounter === 0) isWindowDragOver = false;
+  }
+
+  function resetDragCounter() {
+    dragCounter = 0;
+    isWindowDragOver = false;
   }
 
   function onWindowDrop(e: DragEvent) {
     if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
       e.preventDefault();
-      isWindowDragOver = false;
+      resetDragCounter();
       if (view !== 'editor') {
         const count = e.dataTransfer.files.length;
         showToast(

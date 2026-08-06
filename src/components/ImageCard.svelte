@@ -83,6 +83,19 @@
       popoverOpen = false;
     }
   }
+
+  // Keyboard entry: focus the card so screen readers and Tab users can reach
+  // it. Enter/Space opens the resize sheet (which already has full keyboard
+  // navigation from a previous batch). Escape blurs focus.
+  function onCardKeydown(e: KeyboardEvent) {
+    if (e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Escape') return;
+    if (e.key === 'Escape') {
+      (e.currentTarget as HTMLElement).blur();
+      return;
+    }
+    e.preventDefault();
+    popoverOpen = true;
+  }
 </script>
 
 <svelte:window onclick={onWindowClick} />
@@ -95,6 +108,10 @@
   style:width="{px}px"
   style:height="{px}px"
   title={item.alt}
+  tabindex="0"
+  role="button"
+  aria-label={item.alt ? `Image: ${item.alt}` : 'Image'}
+  onkeydown={onCardKeydown}
 >
   <div class="card-image">
     {#if imageBroken}
