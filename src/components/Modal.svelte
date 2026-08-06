@@ -24,19 +24,31 @@
 
   let panelEl: HTMLDivElement | undefined = $state();
   let triggerEl: HTMLElement | null = null;
+  let focusables: HTMLElement[] = $state([]);
 
   // On open: remember what had focus (so we can restore it on close) and
   // move focus into the modal. On close: hand focus back to the trigger.
+  // Keep the focusable list cached and refreshed via MutationObserver so
+  // the per-Tab handler doesn't re-query the DOM on every keypress.
   $effect(() => {
     if (open && panelEl) {
       const active = document.activeElement;
       triggerEl = active instanceof HTMLElement ? active : null;
-      const firstFocusable = panelEl.querySelector<HTMLElement>(FOCUSABLE_SELECTOR);
-      // Defer so any layout animation has settled.
-      queueMicrotask(() => firstFocusable?.focus());
+
+      const refresh = () => {
+        focusables = Array.from(panelEl!.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR));
+      };
+      refresh();
+      const first = focusables[0];
+      queueMicrotask(() => first?.focus());
+
+      const observer = new MutationObserver(refresh);
+      observer.observe(panelEl, { childList: true, subtree: true });
+      return () => observer.disconnect();
     } else if (!open && triggerEl) {
       const el = triggerEl;
       triggerEl = null;
+      focusables = [];
       queueMicrotask(() => el.focus());
     }
   });
@@ -51,8 +63,7 @@
       onclose();
       return;
     }
-    if (e.key !== 'Tab' || !panelEl) return;
-    const focusables = panelEl.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR);
+    if (e.key !== 'Tab') return;
     if (focusables.length === 0) {
       e.preventDefault();
       return;

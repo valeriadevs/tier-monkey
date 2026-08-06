@@ -45,6 +45,7 @@
   };
   const MAX_TOASTS = 3;
   let toasts = $state<Toast[]>([]);
+  const toastTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
   let isWindowDragOver = $state(false);
   let fileInputEl: HTMLInputElement | undefined = $state();
@@ -53,6 +54,7 @@
 
   let templatesModalOpen = $state(false);
   let shareImportSnapshot = $state<ShareSnapshot | null>(null);
+  let decodingShare = $state(false);
   let isImportingShare = $state(false);
   let shareLinkUrl = $state<string | null>(null);
   let shareLinkSizeKb = $state(0);
@@ -70,14 +72,29 @@
     while (toasts.length > MAX_TOASTS) toasts.shift();
     if (kind === 'error') announcer.say(message);
     if (durationMs > 0) {
-      setTimeout(() => dismissToast(id), durationMs);
+      const timer = setTimeout(() => dismissToast(id), durationMs);
+      toastTimers.set(id, timer);
     }
   }
 
   function dismissToast(id: string) {
+    const timer = toastTimers.get(id);
+    if (timer) {
+      clearTimeout(timer);
+      toastTimers.delete(id);
+    }
     const idx = toasts.findIndex((t) => t.id === id);
     if (idx !== -1) toasts.splice(idx, 1);
   }
+
+  // Clear any in-flight toast timers when the app unmounts so HMR / navigation
+  // doesn't leave dangling setTimeouts.
+  $effect(() => {
+    return () => {
+      for (const t of toastTimers.values()) clearTimeout(t);
+      toastTimers.clear();
+    };
+  });
 
   function handleResult(result: UploadResult) {
     if (result.image) {
@@ -244,14 +261,18 @@
   }
 
   async function initShareImport() {
+    if (decodingShare || shareImportSnapshot) return;
     const encoded = readShareFromHash();
     if (!encoded) return;
+    decodingShare = true;
     try {
       const snap = await decodeShare(encoded);
       shareImportSnapshot = snap;
     } catch (e) {
       showToast(`Bad share link: ${(e as Error).message}`, 'error');
       clearShareHash();
+    } finally {
+      decodingShare = false;
     }
   }
 

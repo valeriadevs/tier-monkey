@@ -93,6 +93,18 @@
     confirmDeleteOpen = false;
   }
 
+  function handleOutsideClick(e: MouseEvent) {
+    if (!menuOpen && !colorPickerOpen) return;
+    if (colorPickerOpen && colorDotEl && !colorDotEl.contains(e.target as Node)) {
+      const target = e.target as HTMLElement;
+      if (!target.closest('.picker')) colorPickerOpen = false;
+    }
+    if (menuOpen && menuButtonEl && !menuButtonEl.contains(e.target as Node)) {
+      const target = e.target as HTMLElement;
+      if (!target.closest('.tier-menu')) menuOpen = false;
+    }
+  }
+
   const deleteConfirmMessage = $derived.by(() => {
     const count = listStore.tierItemCount(tier.id);
     return count > 0
@@ -101,16 +113,7 @@
   });
 </script>
 
-<svelte:window onclick={(e) => {
-  if (colorPickerOpen && colorDotEl && !colorDotEl.contains(e.target as Node)) {
-    const target = e.target as HTMLElement;
-    if (!target.closest('.picker')) colorPickerOpen = false;
-  }
-  if (menuOpen && menuButtonEl && !menuButtonEl.contains(e.target as Node)) {
-    const target = e.target as HTMLElement;
-    if (!target.closest('.tier-menu')) menuOpen = false;
-  }
-}} />
+<svelte:window onclick={handleOutsideClick} />
 
 <div class="tier-row">
   <div class="tier-label" style:background={tier.color}>

@@ -309,14 +309,27 @@ function createListStore() {
     }));
     tiers.splice(0, tiers.length, ...newTiers);
     paletteIndex = newTiers.length;
-    for (const item of snap.items) {
-      const base64 = snap.images[item.imgIdx];
-      if (!base64) continue;
-      const binary = atob(base64);
-      const bytes = new Uint8Array(binary.length);
-      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-      const blob = new Blob([bytes], { type: 'image/webp' });
-      const processed = await processBlob(blob, 'Shared');
+
+    // Decode + process images in parallel (bounded); persist sequentially to
+    // avoid db.assets contention.
+    const processedEntries = await mapWithLimit(
+      snap.items,
+      3,
+      async (item) => {
+        const base64 = snap.images[item.imgIdx];
+        if (!base64) return null;
+        const binary = atob(base64);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        const blob = new Blob([bytes], { type: 'image/webp' });
+        const processed = await processBlob(blob, 'Shared');
+        return { item, processed };
+      }
+    );
+
+    for (const entry of processedEntries) {
+      if (!entry) continue;
+      const { item, processed } = entry;
       const asset = await saveAsset(processed.masterBlob, processed.thumbBlob);
       const urls = await resolveAssetUrls(asset.id);
       cacheAssetUrls(asset.id, urls);
@@ -447,7 +460,8 @@ function createListStore() {
     await Promise.all(assetIds.map((aid) => resolveAssetUrls(aid)));
 
     const hydrated: Item[] = itemRecords.map((r) => {
-      const urls = getAssetUrls(r.assetId)!;
+      const urls = getAssetUrls(r.assetId);
+      if (!urls) throw new Error(`Asset ${r.assetId} missing from cache`);
       return {
         id: r.id,
         assetId: r.assetId,
@@ -622,3 +636,22 @@ function createListStore() {
 
 export type ListStore = ReturnType<typeof createListStore>;
 export const listStore = createListStore();
+
+async function mapWithLimit<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T) => Promise<R>
+): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let cursor = 0;
+  const workerCount = Math.min(limit, items.length);
+  const workers = Array.from({ length: workerCount }, async () => {
+    while (true) {
+      const idx = cursor++;
+      if (idx >= items.length) return;
+      results[idx] = await fn(items[idx]);
+    }
+  });
+  await Promise.all(workers);
+  return results;
+}
