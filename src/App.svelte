@@ -5,14 +5,19 @@
     Copy,
     ChevronDown,
     Download,
+    Ellipsis,
+    ImageDown,
     Moon,
     Monitor,
+    Palette,
+    Pencil,
+    Share2,
     Sun,
     TriangleAlert,
+    Trash2,
     Undo2,
     Redo2,
     Upload,
-    ImageDown,
     X
   } from '@lucide/svelte';
   import { listStore } from './lib/list.svelte';
@@ -41,6 +46,7 @@
   import Dashboard from './components/Dashboard.svelte';
   import TemplatesModal from './components/TemplatesModal.svelte';
   import ShareImportModal from './components/ShareImportModal.svelte';
+  import ConfirmDialog from './components/ConfirmDialog.svelte';
   import ShareLinkModal from './components/ShareLinkModal.svelte';
 
   type View = 'dashboard' | 'editor';
@@ -60,6 +66,44 @@
   let isExporting = $state(false);
   let isSharing = $state(false);
   let exportMenuOpen = $state(false);
+  let listMenuOpen = $state(false);
+  let confirmListDeleteOpen = $state(false);
+
+  function openListMenu() {
+    listMenuOpen = !listMenuOpen;
+  }
+  function closeListMenu() {
+    listMenuOpen = false;
+  }
+
+  async function handleRenameList() {
+    closeListMenu();
+    const next = window.prompt('Rename list', listStore.currentTitle);
+    if (next !== null) listStore.renameCurrentList(next);
+  }
+
+  function requestDeleteList() {
+    closeListMenu();
+    confirmListDeleteOpen = true;
+  }
+
+  async function confirmDeleteList() {
+    confirmListDeleteOpen = false;
+    const title = listStore.currentTitle;
+    await listStore.deleteCurrentList();
+    showToast(`Deleted ${title}`);
+    view = 'dashboard';
+  }
+
+  async function duplicateThisList() {
+    closeListMenu();
+    const id = await listStore.duplicateList();
+    if (id) {
+      showToast('List duplicated');
+    } else {
+      showToast('Nothing to duplicate', 'error');
+    }
+  }
 
   let templatesModalOpen = $state(false);
   let shareImportSnapshot = $state<ShareSnapshot | null>(null);
@@ -141,9 +185,10 @@
   }
 
   function onWindowPointerDownExport(e: PointerEvent) {
-    if (!exportMenuOpen) return;
+    if (!exportMenuOpen && !listMenuOpen) return;
     const target = e.target as HTMLElement;
-    if (!target.closest('.export-cluster')) exportMenuOpen = false;
+    if (exportMenuOpen && !target.closest('.export-cluster')) exportMenuOpen = false;
+    if (listMenuOpen && !target.closest('.list-menu-cluster')) listMenuOpen = false;
   }
 
   function onWindowDragLeave(e: DragEvent) {
@@ -437,10 +482,28 @@
       aria-label="Redo"
     ><Redo2 size={18} aria-hidden="true" /></button>
     <button class="btn-secondary" onclick={pickFiles}><Upload size={16} aria-hidden="true" /> Upload</button>
-    <button class="btn-secondary" onclick={openTemplatesModal}>Templates</button>
+    <button class="btn-secondary" onclick={openTemplatesModal}><Palette size={16} aria-hidden="true" /> Templates</button>
     <button class="btn-secondary" onclick={handleShare} disabled={isSharing}>
-      {isSharing ? 'Sharing…' : 'Share'}
+      <Share2 size={16} aria-hidden="true" /> {isSharing ? 'Sharing…' : 'Share'}
     </button>
+    <div class="list-menu-cluster">
+      <button
+        class="btn-icon"
+        onclick={openListMenu}
+        aria-label="List options"
+        title="List options"
+        aria-expanded={listMenuOpen}
+        aria-haspopup="menu"
+      ><Ellipsis size={18} aria-hidden="true" /></button>
+      {#if listMenuOpen}
+        <div class="list-menu" role="menu" transition:fade={{ duration: 100 }}>
+          <button class="menu-item" onclick={handleRenameList}><Pencil size={15} aria-hidden="true" /> Rename list</button>
+          <button class="menu-item" onclick={duplicateThisList}><Copy size={15} aria-hidden="true" /> Duplicate list</button>
+          <div class="menu-divider" aria-hidden="true"></div>
+          <button class="menu-item destructive" onclick={requestDeleteList}><Trash2 size={15} aria-hidden="true" /> Delete list</button>
+        </div>
+      {/if}
+    </div>
   {/if}
   <button
     class="btn-icon"
@@ -557,6 +620,17 @@
   onaccept={acceptShareImport}
   oncancel={cancelShareImport}
   importing={isImportingShare}
+/>
+
+<ConfirmDialog
+  open={confirmListDeleteOpen}
+  title="Delete this list?"
+  message={`Delete "${listStore.currentTitle}"? This permanently removes the list and any images in it.`}
+  confirmLabel="Delete"
+  cancelLabel="Keep list"
+  destructive
+  onconfirm={confirmDeleteList}
+  oncancel={() => (confirmListDeleteOpen = false)}
 />
 
 <ShareLinkModal
@@ -959,6 +1033,26 @@
   .export-cluster {
     position: relative;
     display: inline-flex;
+  }
+
+  .list-menu-cluster {
+    position: relative;
+    display: inline-flex;
+  }
+
+  .list-menu {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    z-index: 50;
+    min-width: 200px;
+    background: var(--surface-panel);
+    border: 1.5px solid var(--color-neutral-200);
+    border-radius: var(--radius-md);
+    box-shadow: var(--elevation-2);
+    padding: var(--space-1);
+    display: flex;
+    flex-direction: column;
   }
 
   .export-menu {

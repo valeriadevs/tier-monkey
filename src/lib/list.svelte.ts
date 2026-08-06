@@ -525,6 +525,37 @@ function createListStore() {
     return trimmed;
   }
 
+  async function duplicateList(): Promise<string | null> {
+    if (!currentListId) return null;
+    const newId = crypto.randomUUID();
+    const now = Date.now();
+    const newRecord: ListRecord = {
+      id: newId,
+      title: `${currentTitle} (copy)`,
+      createdAt: now,
+      updatedAt: now,
+      schemaVersion: CURRENT_SCHEMA_VERSION,
+      tiers: structuredClone(tiers),
+      paletteIndex
+    };
+    // Items reference the same assetIds; assets don't need duplicating.
+    const itemRecords = await db.items.where('listId').equals(currentListId).toArray();
+    const newItems: ItemRecord[] = itemRecords.map((r, i) => ({
+      ...r,
+      id: crypto.randomUUID(),
+      listId: newId,
+      position: i
+    }));
+    await db.transaction('rw', db.lists, db.items, async () => {
+      await db.lists.put(newRecord);
+      if (newItems.length > 0) await db.items.bulkPut(newItems);
+    });
+    currentListId = newId;
+    currentTitle = newRecord.title;
+    announcer.say(`Duplicated list as ${newRecord.title}`);
+    return newId;
+  }
+
   function schedulePersist() {
     if (!currentListId) return;
     if (saveTimer) clearTimeout(saveTimer);
@@ -643,6 +674,7 @@ function createListStore() {
     loadList,
     deleteCurrentList,
     renameList,
+    duplicateList,
     flushPendingSave
   };
 }

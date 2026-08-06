@@ -163,7 +163,8 @@
       items: localItems,
       type: DND_TYPE_ITEMS,
       flipDurationMs: 200,
-      dropTargetClasses: ['is-dragging-over']
+      dropTargetClasses: ['is-dragging-over'],
+      morphDisabled: true
     }}
     onconsider={handleConsider}
     onfinalize={handleFinalize}
