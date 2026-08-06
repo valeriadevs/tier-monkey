@@ -104,47 +104,7 @@
   .preview-tiers {
     display: flex;
     flex-wrap: wrap;
-    gap: 4px;
+    gap: var(--space-1);
     margin-top: var(--space-1);
-  }
-
-  :global(.btn-primary) {
-    background: var(--color-primary);
-    color: var(--color-on-primary);
-    padding: 0 var(--space-4);
-    height: 36px;
-    border-radius: var(--radius-sm);
-    font-weight: 600;
-    font-size: 14px;
-  }
-
-  :global(.btn-primary:hover:not(:disabled)) {
-    background: var(--color-primary-hover);
-  }
-
-  :global(.btn-primary:disabled) {
-    opacity: 0.6;
-    cursor: not-allowed;
-  }
-
-  :global(.btn-secondary) {
-    background: var(--surface-panel);
-    color: var(--on-surface-primary);
-    border: 1.5px solid var(--color-neutral-300);
-    padding: 0 var(--space-3);
-    height: 36px;
-    border-radius: var(--radius-sm);
-    font-weight: 500;
-    font-size: 14px;
-  }
-
-  :global(.btn-secondary:hover:not(:disabled)) {
-    border-color: var(--color-neutral-500);
-    background: var(--color-neutral-50);
-  }
-
-  :global(.btn-secondary:disabled) {
-    opacity: 0.5;
-    cursor: not-allowed;
   }
 </style>

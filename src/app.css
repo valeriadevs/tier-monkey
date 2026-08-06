@@ -316,6 +316,70 @@ button:focus-visible {
   outline-offset: 2px;
 }
 
+/* ----------------------------------------------------------------
+   Shared buttons (.btn-primary / .btn-secondary / .btn-destructive)
+   Theme-stable (yellow primary in both light + dark). The toolbar
+   buttons in App.svelte override with their scoped sticker-shadow
+   style; modal buttons inherit these flat defaults.
+   ---------------------------------------------------------------- */
+button.btn-primary,
+button.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-4);
+  height: 36px;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--ease-standard),
+              border-color var(--duration-fast) var(--ease-standard);
+}
+
+button.btn-primary {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  border: none;
+}
+
+button.btn-primary:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+}
+
+button.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+button.btn-primary.destructive {
+  background: var(--color-error-fill);
+  color: #FFFFFF;
+}
+
+button.btn-primary.destructive:hover:not(:disabled) {
+  background: var(--color-error-hover);
+}
+
+button.btn-secondary {
+  background: var(--surface-panel);
+  color: var(--on-surface-primary);
+  border: 1.5px solid var(--color-neutral-300);
+  padding: 0 var(--space-3);
+  font-weight: 500;
+}
+
+button.btn-secondary:hover:not(:disabled) {
+  border-color: var(--color-neutral-500);
+  background: var(--color-neutral-50);
+}
+
+button.btn-secondary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 /* Shared modal intro paragraph (TemplatesModal / ShareLinkModal / ShareImportModal) */
 .modal-intro {
   color: var(--on-surface-secondary);

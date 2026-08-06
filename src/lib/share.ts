@@ -112,11 +112,10 @@ export async function buildShareSnapshotFromList(
       const blob = await getAssetBlob(item.assetId);
       if (!blob) continue;
       const small = await resizeImageForShare(blob);
-      const buf = await small.arrayBuffer();
-      const bytes = new Uint8Array(buf);
-      let binary = '';
-      for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
-      const imgBase64 = btoa(binary);
+      // Use FileReader to base64-encode instead of a per-byte char loop; the
+      // loop pegs the main thread for hundreds of ms on a 50-item × 80px webp.
+      const dataUrl = await blobToDataUrl(small);
+      const imgBase64 = dataUrl.slice(dataUrl.indexOf(',') + 1);
       imgIdx = images.length;
       images.push(imgBase64);
       imageIndexByAssetId.set(item.assetId, imgIdx);

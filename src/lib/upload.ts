@@ -26,15 +26,16 @@ export type UploadResult = {
 
 export async function processBlob(blob: Blob, alt: string): Promise<ProcessedImage> {
   const masterBitmap = await createImageBitmap(blob, { imageOrientation: 'from-image' });
-  const masterBlob = await rasterizeToBlob(masterBitmap, MASTER_SIZE);
-  const thumbBlob = await rasterizeToBlob(masterBitmap, THUMB_SIZE);
-
-  const width = masterBitmap.width;
-  const height = masterBitmap.height;
-
-  masterBitmap.close();
-
-  return { masterBlob, thumbBlob, width, height, alt };
+  try {
+    const masterBlob = await rasterizeToBlob(masterBitmap, MASTER_SIZE);
+    const thumbBlob = await rasterizeToBlob(masterBitmap, THUMB_SIZE);
+    return { masterBlob, thumbBlob, width: masterBitmap.width, height: masterBitmap.height, alt };
+  } finally {
+    // GPU bitmap must be released even when rasterizeToBlob throws (no 2D
+    // context, OOM, convertToBlob failure, etc.) — otherwise it sits in the
+    // GPU heap until GC eventually clears it.
+    masterBitmap.close();
+  }
 }
 
 async function processFile(file: File): Promise<UploadResult> {

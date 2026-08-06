@@ -118,6 +118,7 @@
   let templatesModalOpen = $state(false);
   let shareImportSnapshot = $state<ShareSnapshot | null>(null);
   let decodingShare = $state(false);
+  let decodeToken = 0;
   let isImportingShare = $state(false);
   let shareLinkUrl = $state<string | null>(null);
   let shareLinkSizeKb = $state(0);
@@ -436,18 +437,21 @@
 
   async function resizeImageForShare(blob: Blob): Promise<Blob> {
     const bitmap = await createImageBitmap(blob, { imageOrientation: 'from-image' });
-    const targetSize = 80;
-    const scale = Math.min(1, targetSize / Math.max(bitmap.width, bitmap.height));
-    const w = Math.max(1, Math.round(bitmap.width * scale));
-    const h = Math.max(1, Math.round(bitmap.height * scale));
-    const canvas = new OffscreenCanvas(w, h);
-    const ctx = canvas.getContext('2d');
-    if (!ctx) throw new Error('Failed to acquire 2D context');
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = 'high';
-    ctx.drawImage(bitmap, 0, 0, w, h);
-    bitmap.close();
-    return await canvas.convertToBlob({ type: 'image/webp', quality: 0.6 });
+    try {
+      const targetSize = 80;
+      const scale = Math.min(1, targetSize / Math.max(bitmap.width, bitmap.height));
+      const w = Math.max(1, Math.round(bitmap.width * scale));
+      const h = Math.max(1, Math.round(bitmap.height * scale));
+      const canvas = new OffscreenCanvas(w, h);
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('Failed to acquire 2D context');
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(bitmap, 0, 0, w, h);
+      return await canvas.convertToBlob({ type: 'image/webp', quality: 0.6 });
+    } finally {
+      bitmap.close();
+    }
   }
 
   async function getAssetBlob(assetId: string): Promise<Blob | null> {
@@ -495,18 +499,23 @@
   }
 
   async function initShareImport() {
-    if (decodingShare || shareImportSnapshot) return;
     const encoded = readShareFromHash();
     if (!encoded) return;
+    if (shareImportSnapshot) return;
+    // Cancel any in-flight decode: bump the token so its `finally` becomes
+    // a no-op and a fresh hashchange takes its place.
+    const myToken = ++decodeToken;
     decodingShare = true;
     try {
       const snap = await decodeShare(encoded);
+      if (myToken !== decodeToken) return;
       shareImportSnapshot = snap;
     } catch (e) {
+      if (myToken !== decodeToken) return;
       showToast(`Bad share link: ${(e as Error).message}`, 'error');
       clearShareHash();
     } finally {
-      decodingShare = false;
+      if (myToken === decodeToken) decodingShare = false;
     }
   }
 
