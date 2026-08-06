@@ -45,24 +45,54 @@
 
   async function submitUrl(e: Event) {
     e.preventDefault();
-    const url = urlInput.trim();
-    if (!url || urlLoading) return;
+    const raw = urlInput.trim();
+    if (!raw || urlLoading) return;
+    const urls = raw.split(/\s+/).filter((u) => /^https?:\/\//i.test(u));
+    if (urls.length === 0) {
+      onerror?.('No valid URLs in paste');
+      return;
+    }
+    urlLoading = true;
+    let ok = 0;
+    try {
+      for (const url of urls) {
+        try {
+          const response = await fetch(url);
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          const blob = await response.blob();
+          if (!blob.type.startsWith('image/')) {
+            throw new Error(`Not an image (${blob.type || 'unknown type'})`);
+          }
+          const path = url.split('?')[0];
+          const filename = path.split('/').pop() || 'pasted-image';
+          const processed = await processBlob(blob, filename);
+          await listStore.addItemFromUpload(processed);
+          ok++;
+        } catch (err) {
+          onerror?.(`Paste failed (${url}): ${(err as Error).message}`);
+        }
+      }
+      urlInput = '';
+      if (ok > 0) urlInputOpen = false;
+    } finally {
+      urlLoading = false;
+    }
+  }
+
+  async function onPaste(e: ClipboardEvent) {
+    if (!e.clipboardData) return;
+    const items = Array.from(e.clipboardData.items);
+    const imageItem = items.find((i) => i.type.startsWith('image/'));
+    if (!imageItem) return;
+    e.preventDefault();
+    const blob = imageItem.getAsFile();
+    if (!blob) return;
     urlLoading = true;
     try {
-      const response = await fetch(url);
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const blob = await response.blob();
-      if (!blob.type.startsWith('image/')) {
-        throw new Error(`Not an image (${blob.type || 'unknown type'})`);
-      }
-      const path = url.split('?')[0];
-      const filename = path.split('/').pop() || 'pasted-image';
-      const processed = await processBlob(blob, filename);
+      const processed = await processBlob(blob, 'Pasted image');
       await listStore.addItemFromUpload(processed);
-      urlInput = '';
-      urlInputOpen = false;
-    } catch (e) {
-      onerror?.(`Paste failed: ${(e as Error).message}`);
+    } catch (err) {
+      onerror?.(`Paste failed: ${(err as Error).message}`);
     } finally {
       urlLoading = false;
     }
@@ -93,11 +123,11 @@
         bind:value={urlInput}
         type="url"
         class="url-input"
-        placeholder="https://example.com/image.png"
+        placeholder="https://example.com/image.png (paste image or URLs)"
         spellcheck="false"
         autocomplete="off"
         disabled={urlLoading}
-        required
+        onpaste={onPaste}
       />
       <button type="submit" class="url-submit" disabled={urlLoading || !urlInput.trim()}>
         {urlLoading ? 'Fetching…' : 'Add'}

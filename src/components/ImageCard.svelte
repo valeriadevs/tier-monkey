@@ -19,6 +19,7 @@
 
   let popoverOpen = $state(false);
   let cardEl: HTMLDivElement | undefined = $state();
+  let imageBroken = $state(false);
 
   const px = $derived(DISPLAY_SIZE_PX[item.displaySize]);
 
@@ -60,7 +61,18 @@
   title={item.alt}
 >
   <div class="card-image">
-    <img src={item.url} alt={item.alt} draggable="false" />
+    {#if imageBroken}
+      <div class="broken" role="img" aria-label="Image failed to load">
+        <span aria-hidden="true">!</span>
+      </div>
+    {:else}
+      <img
+        src={item.url}
+        alt={item.alt}
+        draggable="false"
+        onerror={() => (imageBroken = true)}
+      />
+    {/if}
   </div>
   {#if onremove}
     <button
@@ -130,6 +142,19 @@
     height: 100%;
     overflow: hidden;
     border-radius: inherit;
+  }
+
+  .broken {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-neutral-200);
+    color: var(--on-surface-secondary);
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 24px;
   }
 
   img {

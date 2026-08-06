@@ -419,6 +419,7 @@
     <Dashboard
       onopeneditor={() => (view = 'editor')}
       onopenTemplates={openTemplatesModal}
+      onerror={(msg) => showToast(msg, 'error')}
     />
   {:else}
     <div class="tier-list">

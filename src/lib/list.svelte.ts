@@ -267,6 +267,18 @@ function createListStore() {
     return item;
   }
 
+  function moveTier(tierId: string, delta: -1 | 1) {
+    const idx = tiers.findIndex((t) => t.id === tierId);
+    if (idx === -1) return;
+    const target = idx + delta;
+    if (target < 0 || target >= tiers.length) return;
+    pushHistory();
+    const moved = tiers.splice(idx, 1)[0];
+    tiers.splice(target, 0, moved);
+    schedulePersist();
+    announcer.say(`Moved ${moved.label} ${delta === -1 ? 'up' : 'down'}`);
+  }
+
   function setTiers(newTiers: { label: string; color: string }[]): void {
     pushHistory();
     const tiersWithId: Tier[] = newTiers.map((t) => ({
@@ -613,6 +625,7 @@ function createListStore() {
     renameTier,
     setTierColor,
     setItemsTier,
+    moveTier,
     setTiers,
     addItemFromUpload,
     addItemToTier,

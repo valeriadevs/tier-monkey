@@ -2,15 +2,17 @@
   import { Pencil, X } from '@lucide/svelte';
   import { dashboardStore, formatRelativeTime } from '../lib/dashboard.svelte';
   import { listStore } from '../lib/list.svelte';
-  import { TEMPLATES } from '../lib/templates';
+  import { TEMPLATES, type Template } from '../lib/templates';
   import ConfirmDialog from './ConfirmDialog.svelte';
 
   let {
     onopeneditor,
-    onopenTemplates
+    onopenTemplates,
+    onerror
   }: {
     onopeneditor: () => void;
     onopenTemplates: () => void;
+    onerror?: (msg: string) => void;
   } = $props();
 
   let creating = $state(false);
@@ -19,6 +21,7 @@
   let editInputEl: HTMLInputElement | undefined = $state();
   let confirmDeleteId = $state<string | null>(null);
   let confirmDeleteTitle = $state('');
+  let pendingTemplateApply = $state<Template | null>(null);
 
   $effect(() => {
     if (!dashboardStore.loaded) {
@@ -39,9 +42,40 @@
     try {
       await listStore.createNewList();
       onopeneditor();
+    } catch (e) {
+      onerror?.(`Could not create list: ${(e as Error).message}`);
     } finally {
       creating = false;
     }
+  }
+
+  function requestApplyTemplate(template: Template) {
+    const hasWork = listStore.items.length > 0 || listStore.tiers.length > 0;
+    if (hasWork) {
+      pendingTemplateApply = template;
+    } else {
+      void applyTemplate(template);
+    }
+  }
+
+  async function applyTemplate(template: Template) {
+    try {
+      const id = await listStore.createFromTemplate(template);
+      await listStore.loadList(id);
+      onopeneditor();
+    } catch (e) {
+      onerror?.(`Could not apply template: ${(e as Error).message}`);
+    }
+  }
+
+  function confirmApplyTemplate() {
+    const t = pendingTemplateApply;
+    pendingTemplateApply = null;
+    if (t) void applyTemplate(t);
+  }
+
+  function cancelApplyTemplate() {
+    pendingTemplateApply = null;
   }
 
   async function handleOpen(id: string) {
@@ -191,7 +225,8 @@
         <button
           type="button"
           class="template-preview-card"
-          onclick={onopenTemplates}
+          onclick={() => requestApplyTemplate(template)}
+          title={`Apply ${template.name} template`}
         >
           <span class="template-preview-emoji" aria-hidden="true">{template.emoji}</span>
           <span class="template-preview-name">{template.name}</span>
@@ -202,19 +237,30 @@
       type="button"
       class="browse-templates-btn"
       onclick={onopenTemplates}
-    >Browse all templates →</button>
+    >View all templates ({TEMPLATES.length}) →</button>
   </section>
 </div>
 
 <ConfirmDialog
   open={confirmDeleteId !== null}
   title="Delete list"
-  message={`Delete "${confirmDeleteTitle}"? This cannot be undone.`}
+  message={`Delete "${confirmDeleteTitle}"? This permanently removes the list and any images in it.`}
   confirmLabel="Delete"
   cancelLabel="Keep list"
   destructive
   onconfirm={confirmDeleteList}
   oncancel={cancelDeleteList}
+/>
+
+<ConfirmDialog
+  open={pendingTemplateApply !== null}
+  title="Replace current list?"
+  message={`Applying "${pendingTemplateApply?.name ?? 'this template'}" will replace your current tiers and items. This cannot be undone.`}
+  confirmLabel="Replace"
+  cancelLabel="Keep current"
+  destructive
+  onconfirm={confirmApplyTemplate}
+  oncancel={cancelApplyTemplate}
 />
 
 <style>

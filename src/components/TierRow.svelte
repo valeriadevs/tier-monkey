@@ -196,6 +196,8 @@
       <div class="tier-menu" role="menu">
         <button class="menu-item" onclick={() => { startRename(); menuOpen = false; }}><Pencil size={15} aria-hidden="true" /> Rename</button>
         <button class="menu-item" onclick={() => { colorPickerOpen = true; menuOpen = false; }}><Palette size={15} aria-hidden="true" /> Change color</button>
+        <button class="menu-item" onclick={() => { listStore.moveTier(tier.id, -1); menuOpen = false; }}><ChevronUp size={15} aria-hidden="true" /> Move up</button>
+        <button class="menu-item" onclick={() => { listStore.moveTier(tier.id, 1); menuOpen = false; }}><ChevronDown size={15} aria-hidden="true" /> Move down</button>
         <button class="menu-item" onclick={() => { onaddtierabove(); menuOpen = false; }}><ChevronUp size={15} aria-hidden="true" /> Add tier above</button>
         <button class="menu-item" onclick={() => { onaddtierbelow(); menuOpen = false; }}><ChevronDown size={15} aria-hidden="true" /> Add tier below</button>
         <div class="menu-divider" aria-hidden="true"></div>
