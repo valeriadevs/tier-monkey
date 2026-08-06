@@ -217,6 +217,17 @@
             tabindex="0"
             onclick={() => handleOpen(list.id)}
             onkeydown={(e) => {
+              // Bail when the user is typing inside a descendant input/textarea/
+              // contenteditable — we don't want space / enter to open the list
+              // while they're editing the name.
+              const target = e.target as HTMLElement | null;
+              if (target && target !== e.currentTarget) {
+                if (
+                  target instanceof HTMLInputElement ||
+                  target instanceof HTMLTextAreaElement ||
+                  target.isContentEditable
+                ) return;
+              }
               if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
                 handleOpen(list.id);
